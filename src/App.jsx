@@ -7,7 +7,9 @@ import Players from './pages/Players';
 import Teams from './pages/Teams';
 import Matches from './pages/Matches';
 import Statistics from './pages/Statistics';
-import './App.css';\n\nfunction App() {
+import './App.css';
+
+function App() {
   return (
     <LeagueProvider>
       <Router>
