@@ -78,7 +78,7 @@ const Teams = () => {
   const handleGenerateSchedule = () => {
     try {
       const schedule = generateRoundRobinSchedule();
-      alert(\`Schedule generated! \${schedule.length} rounds with multiple matches each.\`);
+      alert(`Schedule generated! ${schedule.length} rounds with multiple matches each.`);
     } catch (error) {
       alert('Error generating schedule: ' + error.message);
     }
