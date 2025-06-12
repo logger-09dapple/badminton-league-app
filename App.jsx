@@ -1,1 +1,32 @@
-import React from 'react';\nimport { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';\nimport { LeagueProvider } from './context/LeagueContext';\nimport Header from './components/Header';\nimport Dashboard from './pages/Dashboard';\nimport Players from './pages/Players';\nimport Teams from './pages/Teams';\nimport Matches from './pages/Matches';\nimport Statistics from './pages/Statistics';\nimport './App.css';\n\nfunction App() {\n  return (\n    <LeagueProvider>\n      <Router>\n        <div className=\"App\">\n          <Header />\n          <main className=\"main-content\">\n            <Routes>\n              <Route path=\"/\" element={<Navigate to=\"/dashboard\" replace />} />\n              <Route path=\"/dashboard\" element={<Dashboard />} />\n              <Route path=\"/players\" element={<Players />} />\n              <Route path=\"/teams\" element={<Teams />} />\n              <Route path=\"/matches\" element={<Matches />} />\n              <Route path=\"/statistics\" element={<Statistics />} />\n            </Routes>\n          </main>\n        </div>\n      </Router>\n    </LeagueProvider>\n  );\n}\n\nexport default App;
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { LeagueProvider } from './context/LeagueContext';
+import Header from './components/Header';
+import Dashboard from './pages/Dashboard';
+import Players from './pages/Players';
+import Teams from './pages/Teams';
+import Matches from './pages/Matches';
+import Statistics from './pages/Statistics';
+import './App.css';\n\nfunction App() {
+  return (
+    <LeagueProvider>
+      <Router>
+        <div className=\"App\">
+          <Header />
+          <main className=\"main-content\">
+            <Routes>
+              <Route path=\"/\" element={<Navigate to=\"/dashboard\" replace />} />
+              <Route path=\"/dashboard\" element={<Dashboard />} />
+              <Route path=\"/players\" element={<Players />} />
+              <Route path=\"/teams\" element={<Teams />} />
+              <Route path=\"/matches\" element={<Matches />} />
+              <Route path=\"/statistics\" element={<Statistics />} />
+            </Routes>
+          </main>
+        </div>
+      </Router>
+    </LeagueProvider>
+  );
+}
+
+export default App;
