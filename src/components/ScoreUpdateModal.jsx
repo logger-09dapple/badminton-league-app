@@ -15,13 +15,13 @@ const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
     if (numValue >= 0 && numValue <= 21) {
       setScores(prev => ({
         ...prev,
-        [\`\${team}Score\`]: numValue
+        [`${team}Score`]: numValue
       }));
 
-      if (errors[\`\${team}Score\`]) {
+      if (errors[`${team}Score`]) {
         setErrors(prev => ({
           ...prev,
-          [\`\${team}Score\`]: ''
+          [`${team}Score`]: ''
         }));
       }
     }
