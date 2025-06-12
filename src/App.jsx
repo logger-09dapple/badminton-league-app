@@ -13,16 +13,16 @@ function App() {
   return (
     <LeagueProvider>
       <Router>
-        <div className=\"App\">
+        <div className="App">
           <Header />
-          <main className=\"main-content\">
+          <main className="main-content">
             <Routes>
-              <Route path=\"/\" element={<Navigate to=\"/dashboard\" replace />} />
-              <Route path=\"/dashboard\" element={<Dashboard />} />
-              <Route path=\"/players\" element={<Players />} />
-              <Route path=\"/teams\" element={<Teams />} />
-              <Route path=\"/matches\" element={<Matches />} />
-              <Route path=\"/statistics\" element={<Statistics />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/players" element={<Players />} />
+              <Route path="/teams" element={<Teams />} />
+              <Route path="/matches" element={<Matches />} />
+              <Route path="/statistics" element={<Statistics />} />
             </Routes>
           </main>
         </div>
