@@ -107,12 +107,12 @@ const MatchScheduler = ({ matches, players, onSchedule, onClose }) => {
                     {allTeamPlayers.map(player => (
                       <div
                         key={player.id}
-                        className={\`player-option \${
+                        className={`player-option ${
                           matchSelectedPlayers.includes(player.id) ? 'selected' : ''
-                        } \${
+                        } ${
                           matchSelectedPlayers.length >= 4 && !matchSelectedPlayers.includes(player.id)
                             ? 'disabled' : ''
-                        }\`}
+                        }`}
                         onClick={() => handlePlayerSelection(match.id, player.id)}
                       >
                         <Users size={16} />
