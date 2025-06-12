@@ -36,7 +36,7 @@ const PlayerList = ({ players, onEdit, onDelete }) => {
           </div>
 
           <div className="player-skill">
-            <span className={\`skill-badge \${getSkillBadgeClass(player.skill_level)}\`}>
+            <span className={`skill-badge ${getSkillBadgeClass(player.skill_level)}`}>
               {player.skill_level}
             </span>
           </div>
