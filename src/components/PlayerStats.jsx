@@ -29,7 +29,7 @@ const PlayerStats = ({ players }) => {
             </div>
 
             <div className="skill-level">
-              <span className={\`skill-badge skill-badge-\${player.skill_level?.toLowerCase()}\`}>
+              <span className={`skill-badge skill-badge-${player.skill_level?.toLowerCase()}`}>
                 {player.skill_level}
               </span>
             </div>
