@@ -123,9 +123,9 @@ const Statistics = () => {
                 <span className="skill-label">{skill}</span>
                 <div className="skill-bar">
                   <div 
-                    className={\`skill-fill skill-\${skill.toLowerCase()}\`}
+                    className={`skill-fill skill-\${skill.toLowerCase()}`}
                     style={{ 
-                      width: \`\${(count / statistics.totalPlayers) * 100}%\` 
+                      width: `${(count / statistics.totalPlayers) * 100}%` 
                     }}
                   ></div>
                 </div>
