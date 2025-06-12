@@ -44,7 +44,7 @@ const TeamList = ({ teams, onEdit, onDelete }) => {
           </div>
 
           <div className="team-combination">
-            <span className={\`combination-badge \${getSkillCombinationClass(team.skill_combination)}\`}>
+            <span className={`combination-badge ${getSkillCombinationClass(team.skill_combination)}`}>
               {team.skill_combination || 'Not set'}
             </span>
           </div>
