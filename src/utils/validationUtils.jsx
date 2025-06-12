@@ -1,90 +1,122 @@
-// Form validation utilities
 export const validationUtils = {
-  // Email validation
-  validateEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  },
+ validatePlayer: (playerData) => {
+ const errors = {};
+ let isValid = true;
 
-  // Phone validation (flexible format)
-  validatePhone(phone) {
-    const phoneRegex = /^[\d\s\-\(\)\+]+$/;
-    return phone.length >= 10 && phoneRegex.test(phone);
-  },
+ if (!playerData.name || playerData.name.trim().length < 2) {
+ errors.name = 'Name must be at least 2 characters long';
+ isValid = false;
+ }
 
-  // Player validation
-  validatePlayer(playerData) {
-    const errors = {};
+ if (!playerData.skillLevel) {
+ errors.skillLevel = 'Skill level is required';
+ isValid = false;
+ }
 
-    if (!playerData.name || playerData.name.trim().length < 2) {
-      errors.name = 'Name must be at least 2 characters long';
-    }
+ if (playerData.email && !isValidEmail(playerData.email)) {
+ errors.email = 'Please enter a valid email address';
+ isValid = false;
+ }
 
-    if (!playerData.skillLevel) {
-      errors.skillLevel = 'Skill level is required';
-    }
+ if (playerData.phone && !isValidPhone(playerData.phone)) {
+ errors.phone = 'Please enter a valid phone number';
+ isValid = false;
+ }
 
-    if (playerData.email && !this.validateEmail(playerData.email)) {
-      errors.email = 'Please enter a valid email address';
-    }
+ return { isValid, errors };
+ },
 
-    if (playerData.phone && !this.validatePhone(playerData.phone)) {
-      errors.phone = 'Please enter a valid phone number';
-    }
+ validateTeam: (teamData) => {
+ const errors = {};
+ let isValid = true;
 
-    return {
-      isValid: Object.keys(errors).length === 0,
-      errors
-    };
-  },
+ if (!teamData.name || teamData.name.trim().length < 2) {
+ errors.name = 'Team name must be at least 2 characters long';
+ isValid = false;
+ }
 
-  // Team validation
-  validateTeam(teamData) {
-    const errors = {};
+ if (!teamData.playerIds || teamData.playerIds.length !== 2) {
+ errors.players = 'Team must have exactly 2 players';
+ isValid = false;
+ }
 
-    if (!teamData.name || teamData.name.trim().length < 2) {
-      errors.name = 'Team name must be at least 2 characters long';
-    }
+ return { isValid, errors };
+ },
 
-    if (!teamData.playerIds || teamData.playerIds.length !== 2) {
-      errors.players = 'A team must have exactly 2 players';
-    }
+ validateMatch: (matchData) => {
+ const errors = {};
+ let isValid = true;
 
-    return {
-      isValid: Object.keys(errors).length === 0,
-      errors
-    };
-  },
+ if (!matchData.team1Id) {
+ errors.team1 = 'Team 1 is required';
+ isValid = false;
+ }
 
-  // Match validation
-  validateMatch(matchData) {
-    const errors = {};
+ if (!matchData.team2Id) {
+ errors.team2 = 'Team 2 is required';
+ isValid = false;
+ }
 
-    if (!matchData.team1Id) {
-      errors.team1 = 'Team 1 is required';
-    }
+ if (matchData.team1Id === matchData.team2Id) {
+ errors.teams = 'Teams must be different';
+ isValid = false;
+ }
 
-    if (!matchData.team2Id) {
-      errors.team2 = 'Team 2 is required';
-    }
+ // Validate scheduled date if provided
+ if (matchData.scheduledDate) {
+ const selectedDate = new Date(matchData.scheduledDate);
+ const today = new Date();
+ today.setHours(0, 0, 0, 0);
+ 
+ if (selectedDate < today) {
+ errors.scheduledDate = 'Scheduled date cannot be in the past';
+ isValid = false;
+ }
+ }
 
-    if (matchData.team1Id === matchData.team2Id) {
-      errors.teams = 'Team 1 and Team 2 must be different';
-    }
+ return { isValid, errors };
+ },
 
-    if (matchData.scheduledDate && new Date(matchData.scheduledDate) < new Date()) {
-      errors.scheduledDate = 'Scheduled date cannot be in the past';
-    }
+ validateScore: (score) => {
+ return score >= 0 && score <= 21 && Number.isInteger(score);
+ },
 
-    return {
-      isValid: Object.keys(errors).length === 0,
-      errors
-    };
-  },
+ validateScoreUpdate: (scoreData) => {
+ const errors = {};
+ let isValid = true;
 
-  // Score validation
-  validateScore(score) {
-    const numScore = parseInt(score);
-    return !isNaN(numScore) && numScore >= 0 && numScore <= 21;
-  }
+ if (scoreData.team1Score === undefined || scoreData.team1Score === null) {
+ errors.team1Score = 'Team 1 score is required';
+ isValid = false;
+ } else if (!validationUtils.validateScore(scoreData.team1Score)) {
+ errors.team1Score = 'Score must be between 0 and 21';
+ isValid = false;
+ }
+
+ if (scoreData.team2Score === undefined || scoreData.team2Score === null) {
+ errors.team2Score = 'Team 2 score is required';
+ isValid = false;
+ } else if (!validationUtils.validateScore(scoreData.team2Score)) {
+ errors.team2Score = 'Score must be between 0 and 21';
+ isValid = false;
+ }
+
+ if (scoreData.team1Score === scoreData.team2Score) {
+ errors.scores = 'Scores cannot be tied - one team must win';
+ isValid = false;
+ }
+
+ return { isValid, errors };
+ }
 };
+
+function isValidEmail(email) {
+ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+ return emailRegex.test(email);
+}
+
+function isValidPhone(phone) {
+ const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+ return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
+}
+
