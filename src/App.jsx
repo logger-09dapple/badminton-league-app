@@ -12,7 +12,7 @@ import './App.css';
 function App() {
   return (
     <LeagueProvider>
-      <Router>
+      <Router basename="/badminton-league-app">
         <div className="App">
           <Header />
           <main className="main-content">
