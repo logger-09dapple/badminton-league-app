@@ -71,7 +71,7 @@ const MatchList = ({ matches, teams, onEdit, onSchedule, onUpdateScore }) => {
               </div>
 
               <div className="match-status">
-                <span className={\`status-badge \${status.class}\`}>
+                <span className={`status-badge ${status.class}`}>
                   {status.label}
                 </span>
               </div>
