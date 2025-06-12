@@ -25,7 +25,7 @@ const Header = () => {
               <Link
                 key={path}
                 to={path}
-                className={\`nav-link \${location.pathname === path ? 'active' : ''}\`}
+                className={`nav-link ${location.pathname === path ? 'active' : ''}`}
               >
                 <Icon size={18} />
                 <span>{label}</span>
