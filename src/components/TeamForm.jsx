@@ -122,16 +122,16 @@ const TeamForm = ({ team, players, onSubmit, onCancel }) => {
           {players.map(player => (
             <div
               key={player.id}
-              className={\`player-option \${
+              className={`player-option ${
                 formData.playerIds.includes(player.id) ? 'selected' : ''
-              } \${
+              } ${
                 formData.playerIds.length >= 2 && !formData.playerIds.includes(player.id) 
                   ? 'disabled' : ''
-              }\`}
+              }`}
               onClick={() => handlePlayerSelection(player.id)}
             >
               <span className="player-name">{player.name}</span>
-              <span className={\`skill-badge skill-badge-\${player.skill_level.toLowerCase()}\`}>
+              <span className={`skill-badge skill-badge-${player.skill_level.toLowerCase()}`}>
                 {player.skill_level}
               </span>
             </div>
