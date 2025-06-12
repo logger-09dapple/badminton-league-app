@@ -44,7 +44,7 @@ const QuickActions = () => {
           <button
             key={title}
             onClick={() => navigate(path)}
-            className={\`action-card action-card-\${color}\`}
+            className={`action-card action-card-${color}`}
           >
             <div className="action-icon">
               <Icon size={24} />
