@@ -76,13 +76,13 @@ export const supabaseService = {
   async getTeams() {
     const { data, error } = await supabase
       .from('teams')
-      .select(\`
+      .select(`
         *,
         team_players(
           player_id,
           players(*)
         )
-      \`)
+      `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -159,7 +159,7 @@ export const supabaseService = {
   async getMatches() {
     const { data, error } = await supabase
       .from('matches')
-      .select(\`
+      .select(`
         *,
         team1:teams!matches_team1_id_fkey(*),
         team2:teams!matches_team2_id_fkey(*),
@@ -167,7 +167,7 @@ export const supabaseService = {
           player_id,
           players(*)
         )
-      \`)
+      `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
