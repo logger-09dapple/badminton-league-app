@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter } from 'react-router-dom';
 import { LeagueProvider } from './context/LeagueContext';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
@@ -12,7 +13,7 @@ import './App.css';
 function App() {
   return (
     <LeagueProvider>
-      <Router>
+      <HashRouter>
         <div className="App">
           <Header />
           <main className="main-content">
@@ -26,7 +27,7 @@ function App() {
             </Routes>
           </main>
         </div>
-      </Router>
+      </HashRouter>
     </LeagueProvider>
   );
 }
