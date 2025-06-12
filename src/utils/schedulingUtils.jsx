@@ -38,7 +38,7 @@ export const roundRobinScheduler = {
         // Skip matches with BYE team
         if (team1.id !== 'bye' && team2.id !== 'bye') {
           roundMatches.push({
-            id: \`r\${round + 1}m\${match + 1}\`,
+            id: `r${round + 1}m${match + 1}`,
             round: round + 1,
             team1: team1,
             team2: team2,
@@ -97,8 +97,8 @@ export const roundRobinScheduler = {
           if (i + 1 < players1.length) {
             teams.push({
               id: teamId++,
-              name: \`Team \${teams.length + 1}\`,
-              skill_combination: \`\${skill1}-\${skill2}\`,
+              name: `Team ${teams.length + 1}`,
+              skill_combination: `${skill1}-${skill2}`,
               players: [players1[i], players1[i + 1]],
               playerIds: [players1[i].id, players1[i + 1].id],
               points: 0,
@@ -113,8 +113,8 @@ export const roundRobinScheduler = {
           players2.forEach(player2 => {
             teams.push({
               id: teamId++,
-              name: \`Team \${teams.length + 1}\`,
-              skill_combination: \`\${skill1}-\${skill2}\`,
+              name: `Team ${teams.length + 1}`,
+              skill_combination: `${skill1}-${skill2}`,
               players: [player1, player2],
               playerIds: [player1.id, player2.id],
               points: 0,
