@@ -43,7 +43,7 @@ const RecentMatches = ({ matches }) => {
                   <span className="vs">vs</span>
                   <span className="team-name">{match.team2?.name || 'Team 2'}</span>
                 </div>
-                <span className={\`status-badge \${status.class}\`}>
+                <span className={`status-badge ${status.class}`}>
                   {status.label}
                 </span>
               </div>
