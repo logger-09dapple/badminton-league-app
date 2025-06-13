@@ -1,138 +1,310 @@
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import { useLeague } from '../context/LeagueContext';
-import StatsCard from '../components/StatsCard';
-import PlayerStats from '../components/PlayerStats';
-import TeamStats from '../components/TeamStats';
-import { Trophy, Target, TrendingUp, Award } from 'lucide-react';
+import { Trophy, Users, Target, TrendingUp, Medal, Star, Award } from 'lucide-react';
 
 const Statistics = () => {
-  const { players, teams, matches, statistics, loading } = useLeague();
+  const { players, teams, matches, loading } = useLeague();
+  const [activeTab, setActiveTab] = useState('players');
 
-  // Calculate detailed statistics
-  const detailedStats = useMemo(() => {
-    const completedMatches = matches.filter(match => match.status === 'completed');
-
-    // Player statistics
-    const playerStats = players.map(player => {
-      const playerMatches = completedMatches.filter(match => 
-        match.match_players?.some(mp => mp.player_id === player.id)
-      );
-
-      const wins = playerMatches.filter(match => {
-        const winningTeam = teams.find(team => team.id === match.winner_team_id);
-        return winningTeam?.team_players?.some(tp => tp.player_id === player.id);
-      }).length;
-
-      return {
+  // Calculate comprehensive player statistics
+  const getPlayerStats = () => {
+    return players
+      .map(player => {
+        const winRate = player.matches_played > 0 
+          ? ((player.matches_won / player.matches_played) * 100).toFixed(1)
+          : '0.0';
+        
+        return {
+          ...player,
+          winRate: parseFloat(winRate),
+          rank: 0 // Will be calculated after sorting
+        };
+      })
+      .sort((a, b) => {
+        // Sort by points first, then by win rate, then by matches won
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+        return b.matches_won - a.matches_won;
+      })
+      .map((player, index) => ({
         ...player,
-        matchesPlayed: playerMatches.length,
-        matchesWon: wins,
-        winRate: playerMatches.length > 0 ? (wins / playerMatches.length * 100).toFixed(1) : 0
-      };
-    });
+        rank: index + 1
+      }));
+  };
 
-    // Team statistics
-    const teamStats = teams.map(team => {
-      const teamMatches = completedMatches.filter(match => 
-        match.team1_id === team.id || match.team2_id === team.id
-      );
-
-      const wins = teamMatches.filter(match => match.winner_team_id === team.id).length;
-
-      return {
+  // Calculate comprehensive team statistics
+  const getTeamStats = () => {
+    return teams
+      .map(team => {
+        const winRate = team.matches_played > 0 
+          ? ((team.matches_won / team.matches_played) * 100).toFixed(1)
+          : '0.0';
+        
+        const playerNames = team.team_players?.map(tp => tp.players?.name).join(' & ') || 'No Players';
+        
+        return {
+          ...team,
+          winRate: parseFloat(winRate),
+          playerNames,
+          rank: 0 // Will be calculated after sorting
+        };
+      })
+      .sort((a, b) => {
+        // Sort by points first, then by win rate, then by matches won
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+        return b.matches_won - a.matches_won;
+      })
+      .map((team, index) => ({
         ...team,
-        matchesPlayed: teamMatches.length,
-        matchesWon: wins,
-        winRate: teamMatches.length > 0 ? (wins / teamMatches.length * 100).toFixed(1) : 0
-      };
-    });
+        rank: index + 1
+      }));
+  };
 
-    // Overall statistics
-    const totalGames = completedMatches.length;
-    const averageScorePerGame = totalGames > 0 
-      ? completedMatches.reduce((sum, match) => sum + match.team1_score + match.team2_score, 0) / totalGames 
-      : 0;
-
-    const skillDistribution = players.reduce((acc, player) => {
-      acc[player.skill_level] = (acc[player.skill_level] || 0) + 1;
-      return acc;
-    }, {});
+  // Calculate league overview statistics
+  const getLeagueStats = () => {
+    const totalMatches = matches.length;
+    const completedMatches = matches.filter(m => m.status === 'completed').length;
+    const scheduledMatches = matches.filter(m => m.status === 'scheduled').length;
+    
+    const completionRate = totalMatches > 0 
+      ? ((completedMatches / totalMatches) * 100).toFixed(1)
+      : '0.0';
 
     return {
-      playerStats: playerStats.sort((a, b) => b.winRate - a.winRate),
-      teamStats: teamStats.sort((a, b) => b.winRate - a.winRate),
-      totalGames,
-      averageScorePerGame: averageScorePerGame.toFixed(1),
-      skillDistribution
+      totalPlayers: players.length,
+      totalTeams: teams.length,
+      totalMatches,
+      completedMatches,
+      scheduledMatches,
+      completionRate: parseFloat(completionRate)
     };
-  }, [players, teams, matches]);
+  };
+
+  // Get ranking icon for positions
+  const getRankIcon = (rank) => {
+    switch (rank) {
+      case 1: return <Trophy className="rank-icon gold" size={20} />;
+      case 2: return <Medal className="rank-icon silver" size={20} />;
+      case 3: return <Award className="rank-icon bronze" size={20} />;
+      default: return <span className="rank-number">#{rank}</span>;
+    }
+  };
+
+  // Get skill level color
+  const getSkillLevelColor = (skillLevel) => {
+    switch (skillLevel) {
+      case 'Advanced': return 'skill-advanced';
+      case 'Intermediate': return 'skill-intermediate';
+      case 'Beginner': return 'skill-beginner';
+      default: return '';
+    }
+  };
 
   if (loading) {
     return <div className="loading">Loading statistics...</div>;
   }
 
+  const playerStats = getPlayerStats();
+  const teamStats = getTeamStats();
+  const leagueStats = getLeagueStats();
+
   return (
     <div className="statistics-page">
       <div className="container">
-        <h1>League Statistics</h1>
-
-        <div className="stats-grid">
-          <StatsCard
-            title="Total Games Played"
-            value={detailedStats.totalGames}
-            icon={Trophy}
-            color="blue"
-          />
-          <StatsCard
-            title="Average Score/Game"
-            value={detailedStats.averageScorePerGame}
-            icon={Target}
-            color="green"
-          />
-          <StatsCard
-            title="Active Players"
-            value={statistics.totalPlayers}
-            icon={TrendingUp}
-            color="purple"
-          />
-          <StatsCard
-            title="Active Teams"
-            value={statistics.totalTeams}
-            icon={Award}
-            color="orange"
-          />
+        <div className="page-header">
+          <h1>League Statistics</h1>
         </div>
 
-        <div className="statistics-grid">
-          <div className="stats-section">
-            <h2>Player Statistics</h2>
-            <PlayerStats players={detailedStats.playerStats} />
-          </div>
-
-          <div className="stats-section">
-            <h2>Team Statistics</h2>
-            <TeamStats teams={detailedStats.teamStats} />
-          </div>
-        </div>
-
-        <div className="skill-distribution">
-          <h2>Skill Level Distribution</h2>
-          <div className="distribution-chart">
-            {Object.entries(detailedStats.skillDistribution).map(([skill, count]) => (
-              <div key={skill} className="distribution-item">
-                <span className="skill-label">{skill}</span>
-                <div className="skill-bar">
-                  <div 
-                    className={`skill-fill skill-\${skill.toLowerCase()}`}
-                    style={{ 
-                      width: `${(count / statistics.totalPlayers) * 100}%` 
-                    }}
-                  ></div>
-                </div>
-                <span className="skill-count">{count}</span>
+        {/* League Overview */}
+        <div className="league-overview">
+          <h2>League Overview</h2>
+          <div className="overview-grid">
+            <div className="overview-card">
+              <div className="card-icon">
+                <Users className="icon-users" size={24} />
               </div>
-            ))}
+              <div className="card-content">
+                <h3>Total Players</h3>
+                <span className="big-number">{leagueStats.totalPlayers}</span>
+              </div>
+            </div>
+            
+            <div className="overview-card">
+              <div className="card-icon">
+                <Target className="icon-teams" size={24} />
+              </div>
+              <div className="card-content">
+                <h3>Total Teams</h3>
+                <span className="big-number">{leagueStats.totalTeams}</span>
+              </div>
+            </div>
+            
+            <div className="overview-card">
+              <div className="card-icon">
+                <Trophy className="icon-matches" size={24} />
+              </div>
+              <div className="card-content">
+                <h3>Total Matches</h3>
+                <span className="big-number">{leagueStats.totalMatches}</span>
+              </div>
+            </div>
+            
+            <div className="overview-card">
+              <div className="card-icon">
+                <TrendingUp className="icon-completion" size={24} />
+              </div>
+              <div className="card-content">
+                <h3>Completion Rate</h3>
+                <span className="big-number">{leagueStats.completionRate}%</span>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Statistics Tabs */}
+        <div className="statistics-tabs">
+          <div className="tab-headers">
+            <button 
+              className={`tab-header ${activeTab === 'players' ? 'active' : ''}`}
+              onClick={() => setActiveTab('players')}
+            >
+              <Users size={18} />
+              Player Rankings
+            </button>
+            <button 
+              className={`tab-header ${activeTab === 'teams' ? 'active' : ''}`}
+              onClick={() => setActiveTab('teams')}
+            >
+              <Target size={18} />
+              Team Rankings
+            </button>
+          </div>
+
+          {/* Player Rankings Tab */}
+          {activeTab === 'players' && (
+            <div className="tab-content">
+              <div className="rankings-header">
+                <h3>Player Rankings</h3>
+                <p>Ranked by points, win rate, and matches won</p>
+              </div>
+              
+              {playerStats.length === 0 ? (
+                <div className="empty-state">
+                  <p>No player statistics available yet.</p>
+                  <p>Add players and complete some matches to see rankings.</p>
+                </div>
+              ) : (
+                <div className="rankings-table">
+                  <div className="table-header">
+                    <div className="col-rank">Rank</div>
+                    <div className="col-player">Player</div>
+                    <div className="col-skill">Skill</div>
+                    <div className="col-stat">Points</div>
+                    <div className="col-stat">Matches</div>
+                    <div className="col-stat">Wins</div>
+                    <div className="col-stat">Win Rate</div>
+                  </div>
+                  
+                  {playerStats.map(player => (
+                    <div key={player.id} className="table-row">
+                      <div className="col-rank">
+                        {getRankIcon(player.rank)}
+                      </div>
+                      <div className="col-player">
+                        <div className="player-info">
+                          <span className="player-name">{player.name}</span>
+                          {player.rank <= 3 && (
+                            <Star className="top-player" size={14} />
+                          )}
+                        </div>
+                      </div>
+                      <div className="col-skill">
+                        <span className={`skill-badge ${getSkillLevelColor(player.skill_level)}`}>
+                          {player.skill_level}
+                        </span>
+                      </div>
+                      <div className="col-stat">
+                        <span className="stat-value">{player.points || 0}</span>
+                      </div>
+                      <div className="col-stat">
+                        <span className="stat-value">{player.matches_played || 0}</span>
+                      </div>
+                      <div className="col-stat">
+                        <span className="stat-value">{player.matches_won || 0}</span>
+                      </div>
+                      <div className="col-stat">
+                        <span className="stat-value">{player.winRate}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Team Rankings Tab */}
+          {activeTab === 'teams' && (
+            <div className="tab-content">
+              <div className="rankings-header">
+                <h3>Team Rankings</h3>
+                <p>Ranked by points, win rate, and matches won</p>
+              </div>
+              
+              {teamStats.length === 0 ? (
+                <div className="empty-state">
+                  <p>No team statistics available yet.</p>
+                  <p>Create teams and complete some matches to see rankings.</p>
+                </div>
+              ) : (
+                <div className="rankings-table">
+                  <div className="table-header">
+                    <div className="col-rank">Rank</div>
+                    <div className="col-team">Team</div>
+                    <div className="col-skill">Skill Mix</div>
+                    <div className="col-stat">Points</div>
+                    <div className="col-stat">Matches</div>
+                    <div className="col-stat">Wins</div>
+                    <div className="col-stat">Win Rate</div>
+                  </div>
+                  
+                  {teamStats.map(team => (
+                    <div key={team.id} className="table-row">
+                      <div className="col-rank">
+                        {getRankIcon(team.rank)}
+                      </div>
+                      <div className="col-team">
+                        <div className="team-info">
+                          <div className="team-name">{team.name}</div>
+                          <div className="team-players">{team.playerNames}</div>
+                          {team.rank <= 3 && (
+                            <Star className="top-team" size={14} />
+                          )}
+                        </div>
+                      </div>
+                      <div className="col-skill">
+                        <span className="skill-combo">
+                          {team.skill_combination || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="col-stat">
+                        <span className="stat-value">{team.points || 0}</span>
+                      </div>
+                      <div className="col-stat">
+                        <span className="stat-value">{team.matches_played || 0}</span>
+                      </div>
+                      <div className="col-stat">
+                        <span className="stat-value">{team.matches_won || 0}</span>
+                      </div>
+                      <div className="col-stat">
+                        <span className="stat-value">{team.winRate}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -140,3 +312,4 @@ const Statistics = () => {
 };
 
 export default Statistics;
+

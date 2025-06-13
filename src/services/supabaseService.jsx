@@ -4,347 +4,402 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
- throw new Error(
- 'Missing Supabase environment variables. Please check your .env file and ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.'
- );
+  throw new Error('Missing Supabase environment variables. Please check your .env file.');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Supabase service object with all database operations
-export const supabaseService = {
- // Players operations
- async getPlayers() {
- const { data, error } = await supabase
- .from('players')
- .select('*')
- .order('created_at', { ascending: false });
+class SupabaseService {
+  // Player operations
+  async getPlayers() {
+    const { data, error } = await supabase
+      .from('players')
+      .select('*')
+      .order('points', { ascending: false }); // Order by points for ranking
+    
+    if (error) throw error;
+    return data || [];
+  }
 
- if (error) throw error;
- return data || [];
- },
+  async addPlayer(playerData) {
+    const { data, error } = await supabase
+      .from('players')
+      .insert([{
+        name: playerData.name,
+        skill_level: playerData.skillLevel,
+        email: playerData.email,
+        phone: playerData.phone
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 
- async addPlayer(playerData) {
- const { data, error } = await supabase
- .from('players')
- .insert([{
- name: playerData.name,
- skill_level: playerData.skillLevel,
- email: playerData.email,
- phone: playerData.phone,
- points: 0,
- matches_played: 0,
- matches_won: 0
- }])
- .select()
- .single();
+  async updatePlayer(id, playerData) {
+    const { data, error } = await supabase
+      .from('players')
+      .update({
+        name: playerData.name,
+        skill_level: playerData.skillLevel,
+        email: playerData.email,
+        phone: playerData.phone,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 
- if (error) throw error;
- return data;
- },
+  // NEW: Update player statistics when match is completed
+  async updatePlayerStats(playerId, won) {
+    const { data: player, error: fetchError } = await supabase
+      .from('players')
+      .select('*')
+      .eq('id', playerId)
+      .single();
+    
+    if (fetchError) throw fetchError;
 
- async updatePlayer(id, playerData) {
- const { data, error } = await supabase
- .from('players')
- .update({
- name: playerData.name,
- skill_level: playerData.skillLevel,
- email: playerData.email,
- phone: playerData.phone,
- ...(playerData.points !== undefined && { points: playerData.points }),
- ...(playerData.matchesPlayed !== undefined && { matches_played: playerData.matchesPlayed }),
- ...(playerData.matchesWon !== undefined && { matches_won: playerData.matchesWon })
- })
- .eq('id', id)
- .select()
- .single();
+    const { data, error } = await supabase
+      .from('players')
+      .update({
+        matches_played: (player.matches_played || 0) + 1,
+        matches_won: (player.matches_won || 0) + (won ? 1 : 0),
+        points: (player.points || 0) + (won ? 1 : 0),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', playerId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 
- if (error) throw error;
- return data;
- },
+  async deletePlayer(id) {
+    const { error } = await supabase
+      .from('players')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  }
 
- async deletePlayer(id) {
- const { error } = await supabase
- .from('players')
- .delete()
- .eq('id', id);
+  // Team operations
+  async getTeams() {
+    const { data, error } = await supabase
+      .from('teams')
+      .select(`
+        *,
+        team_players (
+          player_id,
+          players (*)
+        )
+      `)
+      .order('points', { ascending: false }); // Order by points for ranking
+    
+    if (error) throw error;
+    return data || [];
+  }
 
- if (error) throw error;
- },
+  async addTeam(teamData) {
+    // Insert team
+    const { data: team, error: teamError } = await supabase
+      .from('teams')
+      .insert([{
+        name: teamData.name,
+        skill_combination: teamData.skillCombination
+      }])
+      .select()
+      .single();
+    
+    if (teamError) throw teamError;
 
- // Teams operations
- async getTeams() {
- const { data, error } = await supabase
- .from('teams')
- .select(`
- *,
- team_players(
- player_id,
- players(*)
- )
- `)
- .order('created_at', { ascending: false });
+    // Insert team players
+    if (teamData.playerIds && teamData.playerIds.length > 0) {
+      const teamPlayerData = teamData.playerIds.map(playerId => ({
+        team_id: team.id,
+        player_id: playerId
+      }));
 
- if (error) throw error;
- return data || [];
- },
+      const { error: playersError } = await supabase
+        .from('team_players')
+        .insert(teamPlayerData);
+      
+      if (playersError) throw playersError;
+    }
 
- async addTeam(teamData) {
- const { data: team, error: teamError } = await supabase
- .from('teams')
- .insert([{
- name: teamData.name,
- skill_combination: teamData.skillCombination,
- points: 0,
- matches_played: 0,
- matches_won: 0
- }])
- .select()
- .single();
+    return this.getTeamById(team.id);
+  }
 
- if (teamError) throw teamError;
+  async getTeamById(id) {
+    const { data, error } = await supabase
+      .from('teams')
+      .select(`
+        *,
+        team_players (
+          player_id,
+          players (*)
+        )
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 
- // Add team players
- if (teamData.playerIds && teamData.playerIds.length > 0) {
- const teamPlayers = teamData.playerIds.map(playerId => ({
- team_id: team.id,
- player_id: playerId
- }));
+  async updateTeam(id, teamData) {
+    // Update team
+    const { error: teamError } = await supabase
+      .from('teams')
+      .update({
+        name: teamData.name,
+        skill_combination: teamData.skillCombination,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+    
+    if (teamError) throw teamError;
 
- const { error: playersError } = await supabase
- .from('team_players')
- .insert(teamPlayers);
+    // Update team players if provided
+    if (teamData.playerIds) {
+      // Remove existing players
+      await supabase
+        .from('team_players')
+        .delete()
+        .eq('team_id', id);
 
- if (playersError) throw playersError;
- }
+      // Add new players
+      if (teamData.playerIds.length > 0) {
+        const teamPlayerData = teamData.playerIds.map(playerId => ({
+          team_id: id,
+          player_id: playerId
+        }));
 
- // Get the team with players for return
- const { data: teamWithPlayers, error: getError } = await supabase
- .from('teams')
- .select(`
- *,
- team_players(
- player_id,
- players(*)
- )
- `)
- .eq('id', team.id)
- .single();
+        const { error: playersError } = await supabase
+          .from('team_players')
+          .insert(teamPlayerData);
+        
+        if (playersError) throw playersError;
+      }
+    }
 
- if (getError) throw getError;
- return teamWithPlayers;
- },
+    return this.getTeamById(id);
+  }
 
- async updateTeam(id, teamData) {
- const { data, error } = await supabase
- .from('teams')
- .update({
- name: teamData.name,
- skill_combination: teamData.skillCombination,
- ...(teamData.points !== undefined && { points: teamData.points }),
- ...(teamData.matchesPlayed !== undefined && { matches_played: teamData.matchesPlayed }),
- ...(teamData.matchesWon !== undefined && { matches_won: teamData.matchesWon })
- })
- .eq('id', id)
- .select()
- .single();
+  // NEW: Update team statistics when match is completed
+  async updateTeamStats(teamId, won) {
+    const { data: team, error: fetchError } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('id', teamId)
+      .single();
+    
+    if (fetchError) throw fetchError;
 
- if (error) throw error;
- 
- // Update team players if provided
- if (teamData.playerIds) {
- // First delete existing team players
- await supabase
- .from('team_players')
- .delete()
- .eq('team_id', id);
+    const { data, error } = await supabase
+      .from('teams')
+      .update({
+        matches_played: (team.matches_played || 0) + 1,
+        matches_won: (team.matches_won || 0) + (won ? 1 : 0),
+        points: (team.points || 0) + (won ? 1 : 0),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', teamId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 
- // Then add new players
- if (teamData.playerIds.length > 0) {
- const teamPlayers = teamData.playerIds.map(playerId => ({
- team_id: id,
- player_id: playerId
- }));
+  async deleteTeam(id) {
+    const { error } = await supabase
+      .from('teams')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  }
 
- const { error: playersError } = await supabase
- .from('team_players')
- .insert(teamPlayers);
+  // NEW: Delete all teams function
+  async deleteAllTeams() {
+    const { error } = await supabase
+      .from('teams')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
+    
+    if (error) throw error;
+  }
 
- if (playersError) throw playersError;
- }
- }
+  // Match operations
+  async getMatches() {
+    const { data, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        team1:teams!matches_team1_id_fkey(*),
+        team2:teams!matches_team2_id_fkey(*),
+        winner_team:teams!matches_winner_team_id_fkey(*),
+        match_players (
+          player_id,
+          team_id,
+          players (*)
+        )
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  }
 
- // Get the updated team with players
- const { data: teamWithPlayers, error: getError } = await supabase
- .from('teams')
- .select(`
- *,
- team_players(
- player_id,
- players(*)
- )
- `)
- .eq('id', id)
- .single();
+  // NEW: Get matches with team players included
+  async getMatchesWithPlayers() {
+    const { data, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        team1:teams!matches_team1_id_fkey(
+          *,
+          team_players (
+            player_id,
+            players (*)
+          )
+        ),
+        team2:teams!matches_team2_id_fkey(
+          *,
+          team_players (
+            player_id,
+            players (*)
+          )
+        ),
+        winner_team:teams!matches_winner_team_id_fkey(*),
+        match_players (
+          player_id,
+          team_id,
+          players (*)
+        )
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  }
 
- if (getError) throw getError;
- return teamWithPlayers;
- },
+  async addMatch(matchData) {
+    const { data, error } = await supabase
+      .from('matches')
+      .insert([{
+        team1_id: matchData.team1Id,
+        team2_id: matchData.team2Id,
+        scheduled_date: matchData.scheduledDate || null,
+        status: matchData.status || 'scheduled'
+      }])
+      .select(`
+        *,
+        team1:teams!matches_team1_id_fkey(*),
+        team2:teams!matches_team2_id_fkey(*)
+      `)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 
- async deleteTeam(id) {
- // First delete team players
- await supabase
- .from('team_players')
- .delete()
- .eq('team_id', id);
+  // NEW: Add multiple matches for bulk creation
+  async addMatches(matchesData) {
+    const { data, error } = await supabase
+      .from('matches')
+      .insert(matchesData)
+      .select(`
+        *,
+        team1:teams!matches_team1_id_fkey(*),
+        team2:teams!matches_team2_id_fkey(*)
+      `);
+    
+    if (error) throw error;
+    return data || [];
+  }
 
- // Then delete the team
- const { error } = await supabase
- .from('teams')
- .delete()
- .eq('id', id);
+  // ENHANCED: Update match with automatic completion and statistics update
+  async updateMatch(id, matchData) {
+    const updateData = {
+      updated_at: new Date().toISOString()
+    };
 
- if (error) throw error;
- },
+    if (matchData.team1Id) updateData.team1_id = matchData.team1Id;
+    if (matchData.team2Id) updateData.team2_id = matchData.team2Id;
+    if (matchData.scheduledDate !== undefined) updateData.scheduled_date = matchData.scheduledDate;
+    if (matchData.status) updateData.status = matchData.status;
+    if (matchData.team1Score !== undefined) updateData.team1_score = matchData.team1Score;
+    if (matchData.team2Score !== undefined) updateData.team2_score = matchData.team2Score;
+    
+    // Auto-determine winner and complete match when scores are provided
+    if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
+      const winnerId = matchData.team1Score > matchData.team2Score ? matchData.team1Id : matchData.team2Id;
+      updateData.winner_team_id = winnerId;
+      updateData.status = 'completed';
 
- // NEW FUNCTION: Delete all teams
- async deleteAllTeams() {
- try {
-   // First delete all team_players records
-   await supabase
-     .from('team_players')
-     .delete()
-     .neq('team_id', '00000000-0000-0000-0000-000000000000');  // Delete all
+      // Update team statistics
+      await this.updateTeamStats(matchData.team1Id, matchData.team1Score > matchData.team2Score);
+      await this.updateTeamStats(matchData.team2Id, matchData.team2Score > matchData.team1Score);
 
-   // Then delete all teams
-   const { error } = await supabase
-     .from('teams')
-     .delete()
-     .neq('id', '00000000-0000-0000-0000-000000000000');  // Delete all
+      // Update player statistics for team players
+      const team1Players = await this.getTeamPlayerIds(matchData.team1Id);
+      const team2Players = await this.getTeamPlayerIds(matchData.team2Id);
 
-   if (error) throw error;
-   
-   return true;
- } catch (error) {
-   console.error('Error deleting all teams:', error);
-   throw error;
- }
- },
+      for (const playerId of team1Players) {
+        await this.updatePlayerStats(playerId, matchData.team1Score > matchData.team2Score);
+      }
 
- // Matches operations
- async getMatches() {
- const { data, error } = await supabase
- .from('matches')
- .select(`
- *,
- team1:teams!matches_team1_id_fkey(*),
- team2:teams!matches_team2_id_fkey(*),
- match_players(
- player_id,
- players(*)
- )
- `)
- .order('created_at', { ascending: false });
+      for (const playerId of team2Players) {
+        await this.updatePlayerStats(playerId, matchData.team2Score > matchData.team1Score);
+      }
+    }
 
- if (error) throw error;
- return data || [];
- },
+    const { data, error } = await supabase
+      .from('matches')
+      .update(updateData)
+      .eq('id', id)
+      .select(`
+        *,
+        team1:teams!matches_team1_id_fkey(*),
+        team2:teams!matches_team2_id_fkey(*),
+        winner_team:teams!matches_winner_team_id_fkey(*)
+      `)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 
- async addMatch(matchData) {
- const { data, error } = await supabase
- .from('matches')
- .insert([{
- team1_id: matchData.team1Id,
- team2_id: matchData.team2Id,
- scheduled_date: matchData.scheduledDate,
- status: matchData.status || 'scheduled',
- team1_score: matchData.team1Score || 0,
- team2_score: matchData.team2Score || 0,
- winner_team_id: matchData.winnerTeamId || null
- }])
- .select(`
- *,
- team1:teams!matches_team1_id_fkey(*),
- team2:teams!matches_team2_id_fkey(*)
- `)
- .single();
+  // Helper function to get team player IDs
+  async getTeamPlayerIds(teamId) {
+    const { data, error } = await supabase
+      .from('team_players')
+      .select('player_id')
+      .eq('team_id', teamId);
+    
+    if (error) throw error;
+    return data.map(tp => tp.player_id);
+  }
 
- if (error) throw error;
- return data;
- },
+  // NEW: Delete all matches function
+  async deleteAllMatches() {
+    const { error } = await supabase
+      .from('matches')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
+    
+    if (error) throw error;
+  }
+}
 
- async updateMatch(id, matchData) {
- const { data, error } = await supabase
- .from('matches')
- .update({
- scheduled_date: matchData.scheduledDate,
- status: matchData.status,
- team1_score: matchData.team1Score,
- team2_score: matchData.team2Score,
- winner_team_id: matchData.winnerTeamId,
- match_date: matchData.matchDate
- })
- .eq('id', id)
- .select(`
- *,
- team1:teams!matches_team1_id_fkey(*),
- team2:teams!matches_team2_id_fkey(*),
- match_players(
- player_id,
- players(*)
- )
- `)
- .single();
+export const supabaseService = new SupabaseService();
 
- if (error) throw error;
- return data;
- },
-
- // Match players operations
- async addMatchPlayers(matchId, playerIds) {
- const matchPlayers = playerIds.map(playerId => ({
- match_id: matchId,
- player_id: playerId
- }));
-
- const { error } = await supabase
- .from('match_players')
- .insert(matchPlayers);
-
- if (error) throw error;
- },
-
- async updateMatchPlayers(matchId, playerIds) {
- // First remove existing players
- await supabase
- .from('match_players')
- .delete()
- .eq('match_id', matchId);
-
- // Then add new players
- if (playerIds.length > 0) {
- await this.addMatchPlayers(matchId, playerIds);
- }
- },
- 
- // NEW FUNCTION: Add multiple matches at once (for round robin scheduling)
- async addMatches(matchesData) {
-   const matchesToInsert = matchesData.map(match => ({
-     team1_id: match.team1Id,
-     team2_id: match.team2Id,
-     scheduled_date: match.scheduledDate || null,
-     status: match.status || 'scheduled',
-     team1_score: match.team1Score || 0,
-     team2_score: match.team2Score || 0,
-     winner_team_id: match.winnerTeamId || null
-   }));
-
-   const { data, error } = await supabase
-     .from('matches')
-     .insert(matchesToInsert)
-     .select();
-
-   if (error) throw error;
-   return data || [];
- }
-};
