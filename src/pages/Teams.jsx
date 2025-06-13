@@ -116,24 +116,27 @@ const Teams = () => {
  }
  };
 
- const handleGenerateSchedule = () => {
- try {
- if (teams.length < 2) {
- alert('You need at least 2 teams to generate a schedule.');
- return;
- }
- 
- const schedule = generateRoundRobinSchedule();
- if (schedule && schedule.length > 0) {
- alert(`Schedule generated! ${schedule.length} rounds with multiple matches each.`);
- } else {
- alert('No schedule was generated. Please check if you have enough teams.');
- }
- } catch (error) {
- console.error('Error generating schedule:', error);
- alert('Error generating schedule: ' + error.message);
- }
- };
+  // FIXED: Separate schedule generation from team generation
+  const handleGenerateSchedule = async () => {
+    try {
+      if (teams.length < 2) {
+        alert('You need at least 2 teams to generate a schedule.');
+        return;
+      }
+      
+      console.log('Generating schedule for teams:', teams);
+      const schedule = await generateRoundRobinSchedule();
+      
+      if (schedule && schedule.length > 0) {
+        alert(`Schedule generated successfully! ${schedule.length} matches created.`);
+      } else {
+        alert('No schedule was generated. Please check if you have enough teams.');
+      }
+    } catch (error) {
+      console.error('Error generating schedule:', error);
+      alert('Error generating schedule: ' + error.message);
+    }
+  };
 
  if (loading) {
  return <div className="loading">Loading teams...</div>;

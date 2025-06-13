@@ -1131,3 +1131,127 @@ input[type="checkbox"]:focus {
     margin-bottom: 1rem;
   }
 }
+
+/* Enhanced font sizes for player names */
+.player-name {
+  font-size: 1.2rem !important;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.team-player-names {
+  font-size: 1.1rem !important;
+  font-style: italic;
+  color: #475569;
+  margin-top: 0.25rem;
+}
+
+.ranking-player-name {
+  font-size: 1.3rem !important;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* Match page specific styling */
+.match-team-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.match-team-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.match-player-names {
+  font-size: 1rem !important;
+  font-style: italic;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* Teams page styling */
+.team-item .team-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.team-item .team-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.team-item .team-players {
+  font-size: 1rem !important;
+  font-style: italic;
+  color: #64748b;
+}
+
+/* Statistics page enhancements */
+.stats-player-name {
+  font-size: 1.25rem !important;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.stats-team-name {
+  font-size: 1.2rem !important;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* Player list improvements */
+.player-item .player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.player-item .player-name {
+  font-size: 1.2rem !important;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.player-item .player-details {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+/* Responsive font adjustments */
+@media (max-width: 768px) {
+  .player-name {
+    font-size: 1.1rem !important;
+  }
+  
+  .team-player-names {
+    font-size: 1rem !important;
+  }
+  
+  .ranking-player-name {
+    font-size: 1.2rem !important;
+  }
+  
+  .match-player-names {
+    font-size: 0.95rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .player-name {
+    font-size: 1rem !important;
+  }
+  
+  .team-player-names {
+    font-size: 0.95rem !important;
+  }
+  
+  .ranking-player-name {
+    font-size: 1.1rem !important;
+  }
+}
+

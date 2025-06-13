@@ -31,7 +31,7 @@ class SupabaseService {
         phone: playerData.phone
       }])
       .select()
-      .single();
+      .maybeSingle(); // FIXED: Use maybeSingle() instead of single()
     
     if (error) throw error;
     return data;
@@ -49,7 +49,7 @@ class SupabaseService {
       })
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
     
     if (error) throw error;
     return data;
@@ -118,11 +118,15 @@ class SupabaseService {
         skill_combination: teamData.skillCombination
       }])
       .select()
-      .single();
+      .maybeSingle();
     
     if (teamError) {
       console.error('Team insert error:', teamError);
       throw teamError;
+    }
+
+    if (!team) {
+      throw new Error('Failed to create team - no data returned');
     }
 
     // Insert team players if provided
@@ -159,7 +163,7 @@ class SupabaseService {
         )
       `)
       .eq('id', id)
-      .single();
+      .maybeSingle();
     
     if (error) throw error;
     return data;
@@ -316,7 +320,7 @@ class SupabaseService {
         team1:teams!matches_team1_id_fkey(*),
         team2:teams!matches_team2_id_fkey(*)
       `)
-      .single();
+      .maybeSingle();
     
     if (error) throw error;
     return data;
@@ -395,7 +399,7 @@ class SupabaseService {
         team2:teams!matches_team2_id_fkey(*),
         winner_team:teams!matches_winner_team_id_fkey(*)
       `)
-      .single();
+      .maybeSingle();
     
     if (error) throw error;
     return data;
