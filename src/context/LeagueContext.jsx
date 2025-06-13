@@ -375,43 +375,56 @@ export function LeagueProvider({ children }) {
     }
   };
 
-  // Schedule generation
-  const generateRoundRobinSchedule = async () => {
-    try {
-      if (state.teams.length < 2) {
-        throw new Error('At least 2 teams are required for scheduling');
-      }
-
-      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
-      
-      // Generate the schedule
-      const schedule = roundRobinScheduler.generateSchedule(state.teams);
-      
-      // Convert schedule to database-compatible matches
-      const matchesToAdd = roundRobinScheduler.convertScheduleToMatches(schedule);
-      
-      if (matchesToAdd.length > 0) {
-        // Save all matches to database
-        const savedMatches = await supabaseService.addMatches(matchesToAdd);
-        
-        // Update state with new matches
-        dispatch({ type: ACTION_TYPES.ADD_MATCHES, payload: savedMatches });
-        
-        // Also store the schedule for reference
-        dispatch({ type: ACTION_TYPES.GENERATE_SCHEDULE, payload: schedule });
-        
-        return schedule;
-      } else {
-        throw new Error('No matches were generated from the schedule');
-      }
-      
-    } catch (error) {
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-      throw error; // Re-throw so component can handle it
-    } finally {
-      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+// FIXED: Schedule generation that actually saves matches to database
+const generateRoundRobinSchedule = async () => {
+  try {
+    if (state.teams.length < 2) {
+      throw new Error('At least 2 teams are required for scheduling');
     }
-  };
+
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+    
+    console.log('Starting schedule generation with teams:', state.teams);
+    
+    // Generate the schedule using the fixed algorithm
+    const schedule = roundRobinScheduler.generateSchedule(state.teams);
+    
+    if (!schedule || schedule.length === 0) {
+      throw new Error('No schedule was generated from the teams');
+    }
+    
+    console.log('Generated schedule:', schedule);
+    
+    // Convert schedule to database-compatible matches  
+    const matchesToAdd = roundRobinScheduler.convertScheduleToMatches(schedule);
+    
+    console.log('Matches to add:', matchesToAdd);
+    
+    if (matchesToAdd.length > 0) {
+      // Save all matches to database
+      const savedMatches = await supabaseService.addMatches(matchesToAdd);
+      
+      console.log('Saved matches:', savedMatches);
+      
+      // Update state with new matches
+      dispatch({ type: ACTION_TYPES.ADD_MATCHES, payload: savedMatches });
+      
+      // Also store the schedule for reference
+      dispatch({ type: ACTION_TYPES.GENERATE_SCHEDULE, payload: schedule });
+      
+      return schedule;
+    } else {
+      throw new Error('No matches were generated from the schedule');
+    }
+    
+  } catch (error) {
+    console.error('Schedule generation error:', error);
+    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+    throw error; // Re-throw so component can handle it
+  } finally {
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+  }
+};
 
   const value = {
     ...state,
