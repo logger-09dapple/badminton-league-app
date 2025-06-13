@@ -15,7 +15,7 @@ class SupabaseService {
     const { data, error } = await supabase
       .from('players')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('points', { ascending: false }); // Order by points for ranking
     
     if (error) throw error;
     return data || [];
@@ -55,6 +55,32 @@ class SupabaseService {
     return data;
   }
 
+  // NEW: Update player statistics when match is completed
+  async updatePlayerStats(playerId, won) {
+    const { data: player, error: fetchError } = await supabase
+      .from('players')
+      .select('*')
+      .eq('id', playerId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+
+    const { data, error } = await supabase
+      .from('players')
+      .update({
+        matches_played: (player.matches_played || 0) + 1,
+        matches_won: (player.matches_won || 0) + (won ? 1 : 0),
+        points: (player.points || 0) + (won ? 1 : 0),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', playerId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
   async deletePlayer(id) {
     const { error } = await supabase
       .from('players')
@@ -75,7 +101,7 @@ class SupabaseService {
           players (*)
         )
       `)
-      .order('created_at', { ascending: false });
+      .order('points', { ascending: false }); // Order by points for ranking
     
     if (error) throw error;
     return data || [];
@@ -176,6 +202,32 @@ class SupabaseService {
     }
 
     return this.getTeamById(id);
+  }
+
+  // NEW: Update team statistics when match is completed
+  async updateTeamStats(teamId, won) {
+    const { data: team, error: fetchError } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('id', teamId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+
+    const { data, error } = await supabase
+      .from('teams')
+      .update({
+        matches_played: (team.matches_played || 0) + 1,
+        matches_won: (team.matches_won || 0) + (won ? 1 : 0),
+        points: (team.points || 0) + (won ? 1 : 0),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', teamId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
   }
 
   async deleteTeam(id) {
@@ -297,6 +349,7 @@ class SupabaseService {
     return data || [];
   }
 
+  // ENHANCED: Update match with automatic completion and statistics update
   async updateMatch(id, matchData) {
     const updateData = {
       updated_at: new Date().toISOString()
@@ -309,10 +362,27 @@ class SupabaseService {
     if (matchData.team1Score !== undefined) updateData.team1_score = matchData.team1Score;
     if (matchData.team2Score !== undefined) updateData.team2_score = matchData.team2Score;
     
-    // Determine winner if scores are provided
+    // Auto-determine winner and complete match when scores are provided
     if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
-      updateData.winner_team_id = matchData.team1Score > matchData.team2Score ? matchData.team1Id : matchData.team2Id;
+      const winnerId = matchData.team1Score > matchData.team2Score ? matchData.team1Id : matchData.team2Id;
+      updateData.winner_team_id = winnerId;
       updateData.status = 'completed';
+
+      // Update team statistics
+      await this.updateTeamStats(matchData.team1Id, matchData.team1Score > matchData.team2Score);
+      await this.updateTeamStats(matchData.team2Id, matchData.team2Score > matchData.team1Score);
+
+      // Update player statistics for team players
+      const team1Players = await this.getTeamPlayerIds(matchData.team1Id);
+      const team2Players = await this.getTeamPlayerIds(matchData.team2Id);
+
+      for (const playerId of team1Players) {
+        await this.updatePlayerStats(playerId, matchData.team1Score > matchData.team2Score);
+      }
+
+      for (const playerId of team2Players) {
+        await this.updatePlayerStats(playerId, matchData.team2Score > matchData.team1Score);
+      }
     }
 
     const { data, error } = await supabase
@@ -329,6 +399,27 @@ class SupabaseService {
     
     if (error) throw error;
     return data;
+  }
+
+  // Helper function to get team player IDs
+  async getTeamPlayerIds(teamId) {
+    const { data, error } = await supabase
+      .from('team_players')
+      .select('player_id')
+      .eq('team_id', teamId);
+    
+    if (error) throw error;
+    return data.map(tp => tp.player_id);
+  }
+
+  // NEW: Delete all matches function
+  async deleteAllMatches() {
+    const { error } = await supabase
+      .from('matches')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
+    
+    if (error) throw error;
   }
 }
 
