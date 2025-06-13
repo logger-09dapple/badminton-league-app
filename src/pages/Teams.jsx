@@ -155,30 +155,6 @@ const Teams = () => {
         <div className="page-header">
           <h1>Teams Management</h1>
           <div className="header-actions">
-            {/* PROTECTED: Auto Generate Teams Button */}
-            <ProtectedAdminButton
-              onClick={handleAutoGenerateTeams}
-              disabled={players.length < 2 || isGeneratingTeams}
-              className="btn btn-secondary"
-              modalTitle="Auto Generate Teams"
-              modalMessage="This will automatically create teams based on skill level combinations. This is an admin-only feature."
-            >
-              <Shuffle size={18} />
-              {isGeneratingTeams ? 'Generating...' : 'Auto Generate Teams'}
-            </ProtectedAdminButton>
-
-            {/* PROTECTED: Generate Schedule Button */}
-            <ProtectedAdminButton
-              onClick={handleGenerateSchedule}
-              disabled={teams.length < 2}
-              className="btn btn-secondary"
-              modalTitle="Auto Generate Schedule"
-              modalMessage="This will automatically create a round-robin schedule for all teams. This is an admin-only feature."
-            >
-              <Calendar size={18} />
-              Generate Schedule
-            </ProtectedAdminButton>
-
             {/* Regular buttons (no protection needed) */}
  <button 
  onClick={() => setIsAutoGenerateModalOpen(true)} 
@@ -197,14 +173,14 @@ const Teams = () => {
  Generate Schedule
  </button>
  {teams.length > 0 && (
- <button 
+ <ProtectedAdminButton 
  onClick={handleDeleteAllTeams} 
  className="btn btn-danger"
  title="Delete all teams"
  >
  <Trash2 size={18} />
  Delete All Teams
- </button>
+ </ProtectedAdminButton>
  )}
  <button onClick={handleAddTeam} className="btn btn-primary">
  <Plus size={18} />
