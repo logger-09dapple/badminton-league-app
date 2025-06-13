@@ -3,121 +3,127 @@ import { useLeague } from '../context/LeagueContext';
 import TeamForm from '../components/TeamForm';
 import TeamList from '../components/TeamList';
 import Modal from '../components/Modal';
+import ProtectedAdminButton from '../components/ProtectedAdminButton';
+import AdminAuth from '../utils/adminAuth';
 import { roundRobinScheduler } from '../utils/schedulingUtils';
 import { Plus, Shuffle, Calendar, Trash2 } from 'lucide-react';
 
 const Teams = () => {
- const { 
- teams, 
- players, 
- loading, 
- error, 
- addTeam, 
- updateTeam, 
- deleteTeam,
- deleteAllTeams,  // Add this to the context
- generateRoundRobinSchedule 
- } = useLeague();
+  const { 
+    teams, 
+    players, 
+    loading, 
+    error, 
+    addTeam, 
+    updateTeam, 
+    deleteTeam,
+    deleteAllTeams,
+    generateRoundRobinSchedule 
+  } = useLeague();
 
- const [isModalOpen, setIsModalOpen] = useState(false);
- const [selectedTeam, setSelectedTeam] = useState(null);
- const [isAutoGenerateModalOpen, setIsAutoGenerateModalOpen] = useState(false);
- const [isGeneratingTeams, setIsGeneratingTeams] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [isAutoGenerateModalOpen, setIsAutoGenerateModalOpen] = useState(false);
+  const [isGeneratingTeams, setIsGeneratingTeams] = useState(false);
 
- const handleAddTeam = () => {
- setSelectedTeam(null);
- setIsModalOpen(true);
- };
+  const handleAddTeam = () => {
+    setSelectedTeam(null);
+    setIsModalOpen(true);
+  };
 
- const handleEditTeam = (team) => {
- setSelectedTeam(team);
- setIsModalOpen(true);
- };
+  const handleEditTeam = (team) => {
+    setSelectedTeam(team);
+    setIsModalOpen(true);
+  };
 
- const handleTeamSubmit = async (teamData) => {
- try {
- if (selectedTeam) {
- await updateTeam(selectedTeam.id, teamData);
- } else {
- await addTeam(teamData);
- }
- setIsModalOpen(false);
- setSelectedTeam(null);
- } catch (error) {
- console.error('Error saving team:', error);
- alert('Error saving team: ' + error.message);
- }
- };
+  const handleTeamSubmit = async (teamData) => {
+    try {
+      if (selectedTeam) {
+        await updateTeam(selectedTeam.id, teamData);
+      } else {
+        await addTeam(teamData);
+      }
+      setIsModalOpen(false);
+      setSelectedTeam(null);
+    } catch (error) {
+      console.error('Error saving team:', error);
+      alert('Error saving team: ' + error.message);
+    }
+  };
 
- const handleDeleteTeam = async (teamId) => {
- if (window.confirm('Are you sure you want to delete this team?')) {
- try {
- await deleteTeam(teamId);
- } catch (error) {
- console.error('Error deleting team:', error);
- alert('Error deleting team: ' + error.message);
- }
- }
- };
+  const handleDeleteTeam = async (teamId) => {
+    if (window.confirm('Are you sure you want to delete this team?')) {
+      try {
+        await deleteTeam(teamId);
+      } catch (error) {
+        console.error('Error deleting team:', error);
+        alert('Error deleting team: ' + error.message);
+      }
+    }
+  };
 
- // NEW: Handle delete all teams
- const handleDeleteAllTeams = async () => {
- const confirmMessage = `Are you sure you want to delete ALL ${teams.length} teams? This action cannot be undone.`;
- 
- if (window.confirm(confirmMessage)) {
- try {
- await deleteAllTeams();
- alert('All teams have been deleted successfully.');
- } catch (error) {
- console.error('Error deleting all teams:', error);
- alert('Error deleting all teams: ' + error.message);
- }
- }
- };
+  // Regular delete all teams (no password required for now, but could be protected)
+  const handleDeleteAllTeams = async () => {
+    AdminAuth.logAdminAction('Deleting all teams?');
+    const confirmMessage = `Are you sure you want to delete ALL ${teams.length} teams? This action cannot be undone.`;
+    if (window.confirm(confirmMessage)) {
+      try {
+        await deleteAllTeams();
+        alert('All teams have been deleted successfully.');
+      } catch (error) {
+        console.error('Error deleting all teams:', error);
+        alert('Error deleting all teams: ' + error.message);
+      }
+    }
+  };
 
- // FIXED: Handle auto generate teams with proper error handling
- const handleAutoGenerateTeams = async () => {
- setIsGeneratingTeams(true);
- try {
- const generatedTeams = roundRobinScheduler.generateSkillBasedTeams(players);
- 
- if (generatedTeams.length === 0) {
- alert('Not enough players to generate teams. You need at least 2 players.');
- setIsAutoGenerateModalOpen(false);
- setIsGeneratingTeams(false);
- return;
- }
+  // PROTECTED: Auto generate teams (requires admin password)
+  const handleAutoGenerateTeams = async () => {
+    AdminAuth.logAdminAction('Auto Generate Teams Initiated');
+    setIsGeneratingTeams(true);
 
- console.log('Generated teams:', generatedTeams); // Debug log
+    try {
+      const generatedTeams = roundRobinScheduler.generateSkillBasedTeams(players);
 
- // Add all generated teams
- let successCount = 0;
- for (const team of generatedTeams) {
- try {
- await addTeam({
- name: team.name,
- skillCombination: team.skill_combination,
- playerIds: team.playerIds
- });
- successCount++;
- } catch (teamError) {
- console.error('Error adding team:', team.name, teamError);
- }
- }
+      if (generatedTeams.length === 0) {
+        alert('Not enough players to generate teams. You need at least 2 players.');
+        setIsAutoGenerateModalOpen(false);
+        setIsGeneratingTeams(false);
+        return;
+      }
 
- setIsAutoGenerateModalOpen(false);
- alert(`Successfully generated ${successCount} teams!`);
- 
- } catch (error) {
- console.error('Error generating teams:', error);
- alert('Error generating teams: ' + error.message);
- } finally {
- setIsGeneratingTeams(false);
- }
- };
+      console.log('Generated teams:', generatedTeams);
 
-  // FIXED: Separate schedule generation from team generation
+      let successCount = 0;
+      for (const team of generatedTeams) {
+        try {
+          await addTeam({
+            name: team.name,
+            skillCombination: team.skill_combination,
+            playerIds: team.playerIds
+          });
+          successCount++;
+        } catch (teamError) {
+          console.error('Error adding team:', team.name, teamError);
+        }
+      }
+
+      setIsAutoGenerateModalOpen(false);
+      alert(`Successfully generated ${successCount} teams!`);
+      AdminAuth.logAdminAction(`Auto Generated ${successCount} Teams`);
+
+    } catch (error) {
+      console.error('Error generating teams:', error);
+      alert('Error generating teams: ' + error.message);
+    } finally {
+      setIsGeneratingTeams(false);
+    }
+  };
+
+  // PROTECTED: Generate schedule (requires admin password)
   const handleGenerateSchedule = async () => {
+    AdminAuth.logAdminAction('Auto Generate Schedule Initiated');
+
     try {
       if (teams.length < 2) {
         alert('You need at least 2 teams to generate a schedule.');
@@ -128,7 +134,8 @@ const Teams = () => {
       const schedule = await generateRoundRobinSchedule();
       
       if (schedule && schedule.length > 0) {
-        alert(`Schedule generated successfully! ${schedule.length} matches created.`);
+        alert(`Schedule generated! ${schedule.length} rounds with multiple matches each.`);
+        AdminAuth.logAdminAction(`Auto Generated Schedule with ${schedule.length} rounds`);
       } else {
         alert('No schedule was generated. Please check if you have enough teams.');
       }
@@ -138,16 +145,41 @@ const Teams = () => {
     }
   };
 
- if (loading) {
- return <div className="loading">Loading teams...</div>;
- }
+  if (loading) {
+    return <div className="loading">Loading teams...</div>;
+  }
 
- return (
- <div className="teams-page">
- <div className="container">
- <div className="page-header">
- <h1>Teams Management</h1>
- <div className="header-actions">
+  return (
+    <div className="teams-page">
+      <div className="container">
+        <div className="page-header">
+          <h1>Teams Management</h1>
+          <div className="header-actions">
+            {/* PROTECTED: Auto Generate Teams Button */}
+            <ProtectedAdminButton
+              onClick={handleAutoGenerateTeams}
+              disabled={players.length < 2 || isGeneratingTeams}
+              className="btn btn-secondary"
+              modalTitle="Auto Generate Teams"
+              modalMessage="This will automatically create teams based on skill level combinations. This is an admin-only feature."
+            >
+              <Shuffle size={18} />
+              {isGeneratingTeams ? 'Generating...' : 'Auto Generate Teams'}
+            </ProtectedAdminButton>
+
+            {/* PROTECTED: Generate Schedule Button */}
+            <ProtectedAdminButton
+              onClick={handleGenerateSchedule}
+              disabled={teams.length < 2}
+              className="btn btn-secondary"
+              modalTitle="Auto Generate Schedule"
+              modalMessage="This will automatically create a round-robin schedule for all teams. This is an admin-only feature."
+            >
+              <Calendar size={18} />
+              Generate Schedule
+            </ProtectedAdminButton>
+
+            {/* Regular buttons (no protection needed) */}
  <button 
  onClick={() => setIsAutoGenerateModalOpen(true)} 
  className="btn btn-secondary"
@@ -192,6 +224,14 @@ const Teams = () => {
  <span className="stat-label">Available Players:</span>
  <span className="stat-value">{players.length}</span>
  </div>
+          {AdminAuth.isAdminPasswordConfigured() && (
+            <div className="stat-item admin-security-level">
+              <span className="stat-label">Admin Security:</span>
+              <span className={`stat-value security-${AdminAuth.getSecurityLevel().toLowerCase()}`}>
+                {AdminAuth.getSecurityLevel()}
+              </span>
+            </div>
+          )}
  </div>
 
  <TeamList
@@ -236,20 +276,20 @@ const Teams = () => {
  </ul>
  <p>Are you sure you want to generate teams automatically?</p>
  <div className="modal-actions">
- <button 
+ <ProtectedAdminButton 
  onClick={() => setIsAutoGenerateModalOpen(false)} 
  className="btn btn-secondary"
  disabled={isGeneratingTeams}
  >
  Cancel
- </button>
- <button 
+ </ProtectedAdminButton>
+ <ProtectedAdminButton 
  onClick={handleAutoGenerateTeams} 
  className="btn btn-primary"
  disabled={isGeneratingTeams}
  >
  {isGeneratingTeams ? 'Generating...' : 'Generate Teams'}
- </button>
+ </ProtectedAdminButton>
  </div>
  </div>
  </Modal>
