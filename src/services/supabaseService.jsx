@@ -217,6 +217,39 @@ class SupabaseService {
     return data || [];
   }
 
+  // NEW: Get matches with team players included
+  async getMatchesWithPlayers() {
+    const { data, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        team1:teams!matches_team1_id_fkey(
+          *,
+          team_players (
+            player_id,
+            players (*)
+          )
+        ),
+        team2:teams!matches_team2_id_fkey(
+          *,
+          team_players (
+            player_id,
+            players (*)
+          )
+        ),
+        winner_team:teams!matches_winner_team_id_fkey(*),
+        match_players (
+          player_id,
+          team_id,
+          players (*)
+        )
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  }
+
   async addMatch(matchData) {
     const { data, error } = await supabase
       .from('matches')
