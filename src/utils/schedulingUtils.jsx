@@ -197,7 +197,6 @@ export class RoundRobinScheduler {
     const validCombinations = [
       'Advanced-Advanced',
       'Advanced-Intermediate', 
-      'Advanced-Beginner',
       'Intermediate-Intermediate',
       'Intermediate-Beginner',
       'Beginner-Beginner'

@@ -252,13 +252,13 @@ const Teams = () => {
  </ul>
  <p>Are you sure you want to generate teams automatically?</p>
  <div className="modal-actions">
- <ProtectedAdminButton 
+ <button 
  onClick={() => setIsAutoGenerateModalOpen(false)} 
  className="btn btn-secondary"
  disabled={isGeneratingTeams}
  >
  Cancel
- </ProtectedAdminButton>
+ </button>
  <ProtectedAdminButton 
  onClick={handleAutoGenerateTeams} 
  className="btn btn-primary"
