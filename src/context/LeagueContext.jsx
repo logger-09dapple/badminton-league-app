@@ -375,7 +375,7 @@ export function LeagueProvider({ children }) {
     }
   };
 
-// FIXED: Schedule generation that actually saves matches to database
+// FIXED: Schedule generation with proper validation and skill grouping
 const generateRoundRobinSchedule = async () => {
   try {
     if (state.teams.length < 2) {
@@ -384,33 +384,44 @@ const generateRoundRobinSchedule = async () => {
 
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
     
-    console.log('Starting schedule generation with teams:', state.teams);
+    console.log('🏸 Starting enhanced schedule generation with teams:', state.teams);
     
-    // Generate the schedule using the fixed algorithm
+    // STEP 1: Generate schedule using enhanced algorithm
     const schedule = roundRobinScheduler.generateSchedule(state.teams);
     
     if (!schedule || schedule.length === 0) {
-      throw new Error('No schedule was generated from the teams');
+      throw new Error('No valid matches could be generated. Please check team compositions and skill combinations.');
     }
     
-    console.log('Generated schedule:', schedule);
+    console.log('✅ Generated valid schedule:', schedule);
     
-    // Convert schedule to database-compatible matches  
+    // STEP 2: Validate all matches before saving
+    const isValid = roundRobinScheduler.validateAllMatches(schedule, state.teams);
+    if (!isValid) {
+      throw new Error('Generated matches failed validation. Some matches have invalid player assignments.');
+    }
+    
+    // STEP 3: Convert schedule to database-compatible matches  
     const matchesToAdd = roundRobinScheduler.convertScheduleToMatches(schedule);
     
-    console.log('Matches to add:', matchesToAdd);
+    console.log('🗄️ Matches prepared for database:', matchesToAdd);
     
     if (matchesToAdd.length > 0) {
-      // Save all matches to database
+      // STEP 4: Save all matches to database
       const savedMatches = await supabaseService.addMatches(matchesToAdd);
       
-      console.log('Saved matches:', savedMatches);
+      console.log('💾 Successfully saved matches to database:', savedMatches);
       
-      // Update state with new matches
+      // STEP 5: Update state with new matches
       dispatch({ type: ACTION_TYPES.ADD_MATCHES, payload: savedMatches });
       
       // Also store the schedule for reference
       dispatch({ type: ACTION_TYPES.GENERATE_SCHEDULE, payload: schedule });
+      
+      // STEP 6: Final validation log
+      console.log(`\n🏆 SCHEDULE GENERATION COMPLETED SUCCESSFULLY:`);
+      console.log(`   📊 Total matches created: ${savedMatches.length}`);
+      console.log(`   🎯 Skill combinations involved: ${[...new Set(schedule.map(m => m.skill_combination))].join(', ')}`);
       
       return schedule;
     } else {
@@ -418,9 +429,74 @@ const generateRoundRobinSchedule = async () => {
     }
     
   } catch (error) {
-    console.error('Schedule generation error:', error);
+    console.error('❌ Schedule generation error:', error);
     dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
     throw error; // Re-throw so component can handle it
+  } finally {
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+  }
+};
+
+// ENHANCED: Team generation with better validation
+const generateAutomaticTeams = async (players) => {
+  try {
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+    
+    console.log('🤖 Starting automatic team generation with players:', players);
+    
+    // Validate minimum players
+    if (!players || players.length < 4) {
+      throw new Error('At least 4 players are required to generate teams (2 teams minimum)');
+    }
+    
+    // Check for required fields
+    const playersWithGender = players.filter(p => p.gender && p.skill_level);
+    if (playersWithGender.length < players.length) {
+      throw new Error('All players must have both gender and skill level assigned');
+    }
+    
+    // Generate teams using enhanced algorithm
+    const generatedTeams = roundRobinScheduler.generateSkillBasedTeams(playersWithGender);
+    
+    if (generatedTeams.length === 0) {
+      throw new Error('No teams could be generated. Check player skill distributions and gender balance.');
+    }
+
+    console.log(`🎯 Generated ${generatedTeams.length} teams:`, generatedTeams);
+
+    // Add all generated teams to database
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const team of generatedTeams) {
+      try {
+        await addTeam({
+          name: team.name,
+          skillCombination: team.skill_combination,
+          teamType: team.team_type,
+          playerIds: team.playerIds
+        });
+        successCount++;
+      } catch (teamError) {
+        console.error('❌ Error adding team:', team.name, teamError);
+        errorCount++;
+      }
+    }
+
+    const message = `Team generation completed! ✅ ${successCount} teams created successfully` + 
+                   (errorCount > 0 ? `, ❌ ${errorCount} teams failed` : '');
+    
+    console.log(`\n🏆 TEAM GENERATION SUMMARY:`);
+    console.log(`   ✅ Successful: ${successCount}`);
+    console.log(`   ❌ Failed: ${errorCount}`);
+    console.log(`   📊 Success rate: ${((successCount / generatedTeams.length) * 100).toFixed(1)}%`);
+    
+    return { success: true, message, teamsCreated: successCount };
+    
+  } catch (error) {
+    console.error('❌ Team generation error:', error);
+    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+    throw error;
   } finally {
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
   }

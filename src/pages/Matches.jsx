@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLeague } from '../context/LeagueContext';
 import MatchForm from '../components/MatchForm';
 import ScoreUpdateForm from '../components/ScoreUpdateForm';
+import AdminAuth from '../utils/adminAuth';
 import Modal from '../components/Modal';
 import { Plus, Calendar, Trophy, Trash2, Filter, X } from 'lucide-react';
 
@@ -82,6 +83,7 @@ const Matches = () => {
 
   // NEW: Handle delete all matches
   const handleDeleteAllMatches = async () => {
+    AdminAuth.logAdminAction('Deleting all matches?');
     const confirmMessage = `Are you sure you want to delete ALL ${matches.length} matches? This action cannot be undone and will reset all statistics.`;
     
     if (window.confirm(confirmMessage)) {
@@ -162,14 +164,14 @@ const Matches = () => {
               )}
             </button>
             {matches.length > 0 && (
-              <button 
+              <ProtectedAdminButton
                 onClick={handleDeleteAllMatches} 
                 className="btn btn-danger"
                 title="Delete all matches"
               >
                 <Trash2 size={18} />
                 Delete All Matches
-              </button>
+              </ProtectedAdminButton>
             )}
             <button onClick={handleAddMatch} className="btn btn-primary">
               <Plus size={18} />

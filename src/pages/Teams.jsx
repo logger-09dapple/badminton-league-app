@@ -82,43 +82,19 @@ const Teams = () => {
     AdminAuth.logAdminAction('Auto Generate Teams Initiated');
     setIsGeneratingTeams(true);
 
-    try {
-      const generatedTeams = roundRobinScheduler.generateSkillBasedTeams(players);
-
-      if (generatedTeams.length === 0) {
-        alert('Not enough players to generate teams. You need at least 2 players.');
-        setIsAutoGenerateModalOpen(false);
-        setIsGeneratingTeams(false);
-        return;
-      }
-
-      console.log('Generated teams:', generatedTeams);
-
-      let successCount = 0;
-      for (const team of generatedTeams) {
-        try {
-          await addTeam({
-            name: team.name,
-            skillCombination: team.skill_combination,
-            playerIds: team.playerIds
-          });
-          successCount++;
-        } catch (teamError) {
-          console.error('Error adding team:', team.name, teamError);
-        }
-      }
-
-      setIsAutoGenerateModalOpen(false);
-      alert(`Successfully generated ${successCount} teams!`);
-      AdminAuth.logAdminAction(`Auto Generated ${successCount} Teams`);
-
-    } catch (error) {
-      console.error('Error generating teams:', error);
-      alert('Error generating teams: ' + error.message);
-    } finally {
-      setIsGeneratingTeams(false);
-    }
-  };
+try {
+    const result = await generateAutomaticTeams(players);
+    
+    setIsAutoGenerateModalOpen(false);
+    alert(result.message);
+    
+  } catch (error) {
+    console.error('Team generation failed:', error);
+    alert('❌ Team generation failed: ' + error.message);
+  } finally {
+    setIsGeneratingTeams(false);
+  }
+};
 
   // PROTECTED: Generate schedule (requires admin password)
   const handleGenerateSchedule = async () => {
@@ -132,17 +108,25 @@ const Teams = () => {
       
       console.log('Generating schedule for teams:', teams);
       const schedule = await generateRoundRobinSchedule();
+
+    if (schedule && schedule.length > 0) {
+      const skillCombinations = [...new Set(schedule.map(match => match.skill_combination))];
+      const message = `🏆 Schedule generated successfully!\n\n` +
+                     `📊 Total matches: ${schedule.length}\n` +
+                     `🎯 Skill combinations: ${skillCombinations.join(', ')}\n\n` +
+                     `All matches ensure:\n` +
+                     `✅ Same skill level teams only\n` +
+                     `✅ No player appears in both teams\n` +
+                     `✅ Exactly 4 different players per match`;
       
-      if (schedule && schedule.length > 0) {
-        alert(`Schedule generated! ${schedule.length} rounds with multiple matches each.`);
-        AdminAuth.logAdminAction(`Auto Generated Schedule with ${schedule.length} rounds`);
-      } else {
-        alert('No schedule was generated. Please check if you have enough teams.');
-      }
-    } catch (error) {
-      console.error('Error generating schedule:', error);
-      alert('Error generating schedule: ' + error.message);
+      alert(message);
+    } else {
+      alert('❌ No schedule was generated. Please check if you have enough valid teams.');
     }
+  } catch (error) {
+    console.error('Schedule generation failed:', error);
+    alert('❌ Schedule generation failed: ' + error.message);
+  }
   };
 
   if (loading) {
