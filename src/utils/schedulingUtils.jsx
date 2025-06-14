@@ -1,172 +1,220 @@
-// FIXED Round Robin Scheduler for Badminton League with Constraint Optimization
+// Enhanced Round Robin Scheduler for Badminton League with Gender Support
 export class RoundRobinScheduler {
-
-  // FIXED: Generate skill-based teams with proper constraints
-  // Each player can be in multiple teams across different skill combinations
-  // BUT only ONE team per skill combination group
+  
+  // Generate all possible team combinations including gender-based and mixed doubles
   generateSkillBasedTeams(players) {
     console.log('Generating teams from players:', players);
-
+    
     if (!players || players.length < 2) {
       console.warn('Not enough players to generate teams');
       return [];
     }
 
-    const skillGroups = this.groupPlayersBySkill(players);
-    console.log('Players by skill level:', skillGroups);
-
-    // Generate all possible pairs for each skill combination
-    const allPairsBySkill = this.generateAllPairsBySkillCombination(skillGroups);
-
-    // Apply constraints: one team per player per skill combination
-    const selectedTeams = this.selectTeamsWithConstraints(allPairsBySkill);
-
-    // Convert to final team format
-    const finalTeams = this.convertToTeamFormat(selectedTeams);
-
-    console.log('Generated teams with constraints:', finalTeams);
-    return finalTeams;
-  }
-
-  // Group players by skill level
-  groupPlayersBySkill(players) {
-    return players.reduce((groups, player) => {
-      const skill = player.skill_level;
-      if (!groups[skill]) groups[skill] = [];
-      groups[skill].push(player);
-      return groups;
-    }, {});
-  }
-
-  // Generate all possible pairs for each valid skill combination
-  generateAllPairsBySkillCombination(skillGroups) {
-    const validCombinations = [
-      'Advanced-Advanced',
-      'Advanced-Intermediate', 
-      'Intermediate-Intermediate',
-      'Intermediate-Beginner',
-      'Beginner-Beginner'
-      // Note: Advanced-Beginner removed per user request
-    ];
-
-    const allPairs = {};
-
-    for (const combo of validCombinations) {
-      allPairs[combo] = this.generatePairsForSkillCombination(combo, skillGroups);
-    }
-
-    return allPairs;
-  }
-
-  // Generate pairs for a specific skill combination
-  generatePairsForSkillCombination(skillCombo, skillGroups) {
-    const skillLevels = skillCombo.split('-');
-
-    if (skillLevels[0] === skillLevels[1]) {
-      // Same skill level - generate all possible pairs within the group
-      const players = skillGroups[skillLevels[0]] || [];
-      const pairs = [];
-      for (let i = 0; i < players.length; i++) {
-        for (let j = i + 1; j < players.length; j++) {
-          pairs.push([players[i], players[j]]);
-        }
-      }
-      return pairs;
-    } else {
-      // Different skill levels - generate all cross-combinations
-      const group1 = skillGroups[skillLevels[0]] || [];
-      const group2 = skillGroups[skillLevels[1]] || [];
-      const pairs = [];
-      for (const p1 of group1) {
-        for (const p2 of group2) {
-          pairs.push([p1, p2]);
-        }
-      }
-      return pairs;
-    }
-  }
-
-  // CONSTRAINT OPTIMIZATION: Select teams ensuring each player appears only once per skill combination
-  selectTeamsWithConstraints(allPairsBySkill) {
-    const selectedTeams = {};
-    const playerAssignments = {}; // Track which players are used in each skill combination
-
-    for (const [skillCombo, pairs] of Object.entries(allPairsBySkill)) {
-      if (!pairs || pairs.length === 0) {
-        selectedTeams[skillCombo] = [];
-        continue;
-      }
-
-      // Initialize tracking for this skill combination
-      playerAssignments[skillCombo] = new Set();
-
-      const selectedPairs = [];
-      let availablePairs = [...pairs]; // Create a copy
-
-      // Greedily select pairs ensuring no player appears twice in this skill combination
-      while (availablePairs.length > 0) {
-        // Find a pair where neither player is already used in this skill combination
-        let selectedPair = null;
-        let selectedIndex = -1;
-
-        for (let i = 0; i < availablePairs.length; i++) {
-          const [p1, p2] = availablePairs[i];
-          if (!playerAssignments[skillCombo].has(p1.id) && 
-              !playerAssignments[skillCombo].has(p2.id)) {
-            selectedPair = availablePairs[i];
-            selectedIndex = i;
-            break;
-          }
-        }
-
-        if (selectedPair === null) {
-          break; // No more valid pairs available
-        }
-
-        // Add the selected pair
-        selectedPairs.push(selectedPair);
-        const [p1, p2] = selectedPair;
-        playerAssignments[skillCombo].add(p1.id);
-        playerAssignments[skillCombo].add(p2.id);
-
-        // Remove pairs that would create conflicts
-        availablePairs = availablePairs.filter(([player1, player2]) => 
-          !playerAssignments[skillCombo].has(player1.id) && 
-          !playerAssignments[skillCombo].has(player2.id)
-        );
-      }
-
-      selectedTeams[skillCombo] = selectedPairs;
-
-      console.log(`${skillCombo}: Selected ${selectedPairs.length} teams from ${pairs.length} possible pairs`);
-    }
-
-    return selectedTeams;
-  }
-
-  // Convert selected pairs to team format with proper naming
-  convertToTeamFormat(selectedTeams) {
     const teams = [];
     let teamCounter = 1;
 
-    for (const [skillCombo, pairs] of Object.entries(selectedTeams)) {
-      for (const [player1, player2] of pairs) {
-        teams.push({
-          name: `Team ${teamCounter++}`,
-          skill_combination: skillCombo,
-          playerIds: [player1.id, player2.id],
-          players: [player1, player2]
+    // Group players by gender and skill
+    const genderSkillGroups = this.groupPlayersByGenderAndSkill(players);
+    console.log('Players grouped by gender and skill:', genderSkillGroups);
+
+    // Helper function to create teams
+    const createTeam = (player1, player2, combination, type = 'same-gender') => {
+      return {
+        name: `Team ${teamCounter++}`,
+        skill_combination: combination,
+        team_type: type,
+        playerIds: [player1.id, player2.id],
+        players: [player1, player2]
+      };
+    };
+
+    // 1. Generate same-gender teams (Male teams)
+    if (genderSkillGroups.Male) {
+      const maleTeams = this.generateSameGenderTeams(genderSkillGroups.Male, 'Male');
+      teams.push(...maleTeams.map(team => createTeam(team.players[0], team.players[1], team.skill_combination, 'male')));
+    }
+
+    // 2. Generate same-gender teams (Female teams)
+    if (genderSkillGroups.Female) {
+      const femaleTeams = this.generateSameGenderTeams(genderSkillGroups.Female, 'Female');
+      teams.push(...femaleTeams.map(team => createTeam(team.players[0], team.players[1], team.skill_combination, 'female')));
+    }
+
+    // 3. Generate mixed doubles teams (one male, one female)
+    const mixedTeams = this.generateMixedDoublesTeams(genderSkillGroups);
+    teams.push(...mixedTeams.map(team => createTeam(team.players[0], team.players[1], team.skill_combination, 'mixed-doubles')));
+
+    console.log('Generated teams:', teams);
+    return teams;
+  }
+
+  // Group players by gender and then by skill level
+  groupPlayersByGenderAndSkill(players) {
+    const groups = {};
+    
+    players.forEach(player => {
+      const gender = player.gender;
+      const skill = player.skill_level;
+      
+      if (!groups[gender]) {
+        groups[gender] = {};
+      }
+      if (!groups[gender][skill]) {
+        groups[gender][skill] = [];
+      }
+      
+      groups[gender][skill].push(player);
+    });
+    
+    return groups;
+  }
+
+  // Generate same-gender teams for a specific gender
+  generateSameGenderTeams(genderGroup, gender) {
+    const teams = [];
+    const skillLevels = ['Advanced', 'Intermediate', 'Beginner'];
+    
+    // All valid skill combinations including Advanced-Beginner
+    const validCombinations = [
+      ['Advanced', 'Advanced'],
+      ['Advanced', 'Intermediate'],
+      ['Advanced', 'Beginner'], // RESTORED: Advanced-Beginner combination
+      ['Intermediate', 'Intermediate'],
+      ['Intermediate', 'Beginner'],
+      ['Beginner', 'Beginner']
+    ];
+
+    validCombinations.forEach(([skill1, skill2]) => {
+      const players1 = genderGroup[skill1] || [];
+      const players2 = genderGroup[skill2] || [];
+      
+      if (skill1 === skill2) {
+        // Same skill level - create pairs within the group
+        const pairs = this.createOptimalPairs(players1);
+        pairs.forEach(pair => {
+          teams.push({
+            skill_combination: `${skill1}-${skill2}`,
+            players: pair
+          });
+        });
+      } else {
+        // Different skill levels - create mixed skill pairs
+        const mixedPairs = this.createOptimalMixedPairs(players1, players2);
+        mixedPairs.forEach(pair => {
+          teams.push({
+            skill_combination: `${skill1}-${skill2}`,
+            players: pair
+          });
         });
       }
-    }
+    });
 
     return teams;
   }
 
-  // FIXED: Generate round-robin schedule using proper circle method
+  // Generate mixed doubles teams (one male, one female)
+  generateMixedDoublesTeams(genderSkillGroups) {
+    const teams = [];
+    const malePlayers = this.flattenGenderGroup(genderSkillGroups.Male || {});
+    const femalePlayers = this.flattenGenderGroup(genderSkillGroups.Female || {});
+    
+    if (malePlayers.length === 0 || femalePlayers.length === 0) {
+      return teams;
+    }
+
+    // Create one mixed doubles team per player constraint
+    const usedMales = new Set();
+    const usedFemales = new Set();
+    
+    // Try to create balanced skill combinations for mixed doubles
+    const skillCombinations = [
+      ['Advanced', 'Advanced'],
+      ['Advanced', 'Intermediate'],
+      ['Advanced', 'Beginner'],
+      ['Intermediate', 'Intermediate'],
+      ['Intermediate', 'Beginner'],
+      ['Beginner', 'Beginner']
+    ];
+
+    skillCombinations.forEach(([skill1, skill2]) => {
+      const availableMales = malePlayers.filter(p => p.skill_level === skill1 && !usedMales.has(p.id));
+      const availableFemales = femalePlayers.filter(p => p.skill_level === skill2 && !usedFemales.has(p.id));
+      
+      const pairCount = Math.min(availableMales.length, availableFemales.length);
+      
+      for (let i = 0; i < pairCount; i++) {
+        const male = availableMales[i];
+        const female = availableFemales[i];
+        
+        teams.push({
+          skill_combination: `Mixed-${skill1}-${skill2}`,
+          players: [male, female]
+        });
+        
+        usedMales.add(male.id);
+        usedFemales.add(female.id);
+      }
+    });
+
+    return teams;
+  }
+
+  // Flatten gender group to get all players
+  flattenGenderGroup(genderGroup) {
+    const allPlayers = [];
+    Object.values(genderGroup).forEach(skillGroup => {
+      allPlayers.push(...skillGroup);
+    });
+    return allPlayers;
+  }
+
+  // Create optimal pairs within same skill group (constraint: each player in one team per skill combination)
+  createOptimalPairs(players) {
+    const pairs = [];
+    const usedPlayers = new Set();
+    
+    for (let i = 0; i < players.length; i++) {
+      if (usedPlayers.has(players[i].id)) continue;
+      
+      for (let j = i + 1; j < players.length; j++) {
+        if (usedPlayers.has(players[j].id)) continue;
+        
+        pairs.push([players[i], players[j]]);
+        usedPlayers.add(players[i].id);
+        usedPlayers.add(players[j].id);
+        break;
+      }
+    }
+    
+    return pairs;
+  }
+
+  // Create optimal mixed skill pairs (constraint: each player in one team per skill combination)
+  createOptimalMixedPairs(players1, players2) {
+    const pairs = [];
+    const usedFromGroup1 = new Set();
+    const usedFromGroup2 = new Set();
+    
+    for (let i = 0; i < players1.length; i++) {
+      if (usedFromGroup1.has(players1[i].id)) continue;
+      
+      for (let j = 0; j < players2.length; j++) {
+        if (usedFromGroup2.has(players2[j].id)) continue;
+        
+        pairs.push([players1[i], players2[j]]);
+        usedFromGroup1.add(players1[i].id);
+        usedFromGroup2.add(players2[j].id);
+        break;
+      }
+    }
+    
+    return pairs;
+  }
+
+  // Rest of existing methods remain the same...
   generateSchedule(teams) {
     console.log('Generating schedule for teams:', teams);
-
+    
     if (!teams || teams.length < 2) {
       console.warn('Not enough teams for schedule generation');
       return [];
@@ -177,14 +225,12 @@ export class RoundRobinScheduler {
     return schedule;
   }
 
-  // Round-robin scheduling with proper team handling
   generateRoundRobinSchedule(teams) {
     if (teams.length < 2) return [];
 
     const schedule = [];
     const teamList = [...teams];
-
-    // If odd number of teams, add a "bye" team
+    
     if (teamList.length % 2 === 1) {
       teamList.push({ id: 'bye', name: 'BYE' });
     }
@@ -194,15 +240,14 @@ export class RoundRobinScheduler {
 
     for (let round = 0; round < numRounds; round++) {
       const roundMatches = [];
-
+      
       for (let match = 0; match < matchesPerRound; match++) {
         const team1Index = match;
         const team2Index = teamList.length - 1 - match;
-
+        
         const team1 = teamList[team1Index];
         const team2 = teamList[team2Index];
-
-        // Skip matches involving the "bye" team
+        
         if (team1.id !== 'bye' && team2.id !== 'bye') {
           roundMatches.push({
             team1_id: team1.id,
@@ -212,12 +257,11 @@ export class RoundRobinScheduler {
           });
         }
       }
-
+      
       if (roundMatches.length > 0) {
         schedule.push(...roundMatches);
       }
-
-      // Rotate teams (keep first team fixed, rotate others)
+      
       if (teamList.length > 2) {
         const lastTeam = teamList.pop();
         teamList.splice(1, 0, lastTeam);
@@ -227,65 +271,17 @@ export class RoundRobinScheduler {
     return schedule;
   }
 
-  // Convert schedule to database-compatible matches
   convertScheduleToMatches(schedule) {
     console.log('Converting schedule to matches:', schedule);
-
+    
     return schedule.map(match => ({
       team1_id: match.team1_id,
       team2_id: match.team2_id,
-      scheduled_date: null, // Use snake_case and set to null initially
+      scheduled_date: null,
       status: match.status || 'scheduled'
     }));
-  }
-
-  // Validate team skill combination
-  validateTeamCombination(players) {
-    if (players.length !== 2) {
-      return { valid: false, message: 'Team must have exactly 2 players' };
-    }
-
-    const skills = players.map(p => p.skill_level).sort();
-    const combination = skills.join('-');
-
-    const validCombinations = [
-      'Advanced-Advanced',
-      'Advanced-Intermediate', 
-      'Intermediate-Intermediate',
-      'Intermediate-Beginner',
-      'Beginner-Beginner'
-    ];
-
-    const normalizedCombo = skills.reverse().join('-'); // Try reverse order too
-
-    if (validCombinations.includes(combination) || validCombinations.includes(normalizedCombo)) {
-      return { 
-        valid: true, 
-        combination: skills.includes('Advanced') && skills.includes('Intermediate')
-          ? 'Advanced-Intermediate'
-          : skills.includes('Intermediate') && skills.includes('Beginner')
-            ? 'Intermediate-Beginner'
-            : combination
-      };
-    }
-
-    return { valid: false, message: 'Invalid skill combination' };
-  }
-
-  // Balance teams by skill level
-  balanceTeamsBySkill(teams) {
-    const skillCombinations = {};
-
-    teams.forEach(team => {
-      const combo = team.skill_combination;
-      if (!skillCombinations[combo]) {
-        skillCombinations[combo] = [];
-      }
-      skillCombinations[combo].push(team);
-    });
-
-    return skillCombinations;
   }
 }
 
 export const roundRobinScheduler = new RoundRobinScheduler();
+

@@ -27,6 +27,7 @@ class SupabaseService {
       .insert([{
         name: playerData.name,
         skill_level: playerData.skillLevel,
+	gender: playerData.gender,
         email: playerData.email,
         phone: playerData.phone
       }])
@@ -43,6 +44,7 @@ class SupabaseService {
       .update({
         name: playerData.name,
         skill_level: playerData.skillLevel,
+	gender: playerData.gender,
         email: playerData.email,
         phone: playerData.phone,
         updated_at: new Date().toISOString()
@@ -115,7 +117,8 @@ class SupabaseService {
       .from('teams')
       .insert([{
         name: teamData.name,
-        skill_combination: teamData.skillCombination
+        skill_combination: teamData.skillCombination,
+        team_type: teamData.teamType || 'same-gender' // NEW: Track team type
       }])
       .select()
       .maybeSingle();

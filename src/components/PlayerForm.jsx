@@ -5,6 +5,7 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: '',
     skillLevel: '',
+    gender: '', // NEW: Gender field
     email: '',
     phone: ''
   });
@@ -16,6 +17,7 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
       setFormData({
         name: player.name || '',
         skillLevel: player.skill_level || '',
+        gender: player.gender || '', // NEW: Load gender
         email: player.email || '',
         phone: player.phone || ''
       });
@@ -29,7 +31,6 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
       [name]: value
     }));
 
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -52,6 +53,7 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
       await onSubmit(formData);
     } catch (error) {
       console.error('Error submitting player form:', error);
+      setErrors({ submit: 'Failed to save player. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -60,7 +62,7 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
   return (
     <form onSubmit={handleSubmit} className="player-form">
       <div className="form-group">
-        <label htmlFor="name">Full Name *</label>
+        <label htmlFor="name">Name *</label>
         <input
           type="text"
           id="name"
@@ -68,7 +70,7 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
           value={formData.name}
           onChange={handleChange}
           className={errors.name ? 'error' : ''}
-          placeholder="Enter player's full name"
+          placeholder="Enter player name"
         />
         {errors.name && <span className="error-text">{errors.name}</span>}
       </div>
@@ -82,12 +84,29 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
           onChange={handleChange}
           className={errors.skillLevel ? 'error' : ''}
         >
-          <option value="">Select skill level</option>
+          <option value="">Select Skill Level</option>
           <option value="Beginner">Beginner</option>
           <option value="Intermediate">Intermediate</option>
           <option value="Advanced">Advanced</option>
         </select>
         {errors.skillLevel && <span className="error-text">{errors.skillLevel}</span>}
+      </div>
+
+      {/* NEW: Gender selection */}
+      <div className="form-group">
+        <label htmlFor="gender">Gender *</label>
+        <select
+          id="gender"
+          name="gender"
+          value={formData.gender}
+          onChange={handleChange}
+          className={errors.gender ? 'error' : ''}
+        >
+          <option value="">Select Gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+        </select>
+        {errors.gender && <span className="error-text">{errors.gender}</span>}
       </div>
 
       <div className="form-group">
@@ -99,7 +118,7 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
           value={formData.email}
           onChange={handleChange}
           className={errors.email ? 'error' : ''}
-          placeholder="player@example.com"
+          placeholder="Enter email address"
         />
         {errors.email && <span className="error-text">{errors.email}</span>}
       </div>
@@ -113,10 +132,16 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
           value={formData.phone}
           onChange={handleChange}
           className={errors.phone ? 'error' : ''}
-          placeholder="+1 (555) 123-4567"
+          placeholder="Enter phone number"
         />
         {errors.phone && <span className="error-text">{errors.phone}</span>}
       </div>
+
+      {errors.submit && (
+        <div className="error-message">
+          {errors.submit}
+        </div>
+      )}
 
       <div className="form-actions">
         <button type="button" onClick={onCancel} className="btn btn-secondary">
@@ -131,3 +156,4 @@ const PlayerForm = ({ player, onSubmit, onCancel }) => {
 };
 
 export default PlayerForm;
+

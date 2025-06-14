@@ -13,6 +13,12 @@ export const validationUtils = {
       isValid = false;
     }
 
+    // NEW: Gender validation
+    if (!playerData.gender) {
+      errors.gender = 'Gender is required';
+      isValid = false;
+    }
+
     if (playerData.email && !isValidEmail(playerData.email)) {
       errors.email = 'Please enter a valid email address';
       isValid = false;
