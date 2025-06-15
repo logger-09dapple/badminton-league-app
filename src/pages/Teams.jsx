@@ -18,6 +18,7 @@ const Teams = () => {
     updateTeam, 
     deleteTeam,
     deleteAllTeams,
+    generateAutomaticTeams,
     generateRoundRobinSchedule 
   } = useLeague();
 
