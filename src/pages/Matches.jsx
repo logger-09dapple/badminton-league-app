@@ -5,6 +5,7 @@ import ScoreUpdateForm from '../components/ScoreUpdateForm';
 import AdminAuth from '../utils/adminAuth';
 import Modal from '../components/Modal';
 import { Plus, Calendar, Trophy, Trash2, Filter, X } from 'lucide-react';
+import ProtectedAdminButton from '../components/ProtectedAdminButton';
 
 const Matches = () => {
   const { 
