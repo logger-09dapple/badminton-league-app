@@ -519,7 +519,9 @@ validateTeamsForScheduling(teams) {
         matches.push({
           team1_id: teams[i].id,
           team2_id: teams[j].id,
-          status: 'scheduled'
+          status: 'scheduled',
+          skill_combination_1: team1.skill_combination,
+          skill_combination_2: team2.skill_combination		
         });
       }
     }
