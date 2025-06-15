@@ -375,7 +375,6 @@ export function LeagueProvider({ children }) {
     }
   };
 
-
 const generateRoundRobinSchedule = async () => {
   try {
     console.log('🚀 Starting match generation process...');
@@ -386,20 +385,42 @@ const generateRoundRobinSchedule = async () => {
 
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
     
+    // Pre-validation: Check team data integrity
+    console.log('🔍 Pre-validation check...');
+    const validTeams = state.teams.filter(team => 
+      team.players && Array.isArray(team.players) && team.players.length === 2
+    );
+    
+    const invalidTeams = state.teams.filter(team => 
+      !team.players || !Array.isArray(team.players) || team.players.length !== 2
+    );
+
+    if (invalidTeams.length > 0) {
+      console.error('❌ Invalid teams detected:', invalidTeams.map(t => ({
+        name: t.name,
+        playersType: typeof t.players,
+        playersLength: Array.isArray(t.players) ? t.players.length : 'N/A'
+      })));
+      
+      throw new Error(`Found ${invalidTeams.length} invalid teams without proper player data. Please check: ${invalidTeams.map(t => t.name).join(', ')}`);
+    }
+
+    console.log(`✅ Pre-validation passed: ${validTeams.length} valid teams`);
+    
     // Detailed team data logging
-    console.log('📊 Available teams for scheduling:', state.teams.map(team => ({
+    console.log('📊 Teams for scheduling:', validTeams.map(team => ({
       id: team.id,
       name: team.name,
       skillCombination: team.skill_combination,
       playerCount: team.players?.length || 0,
-      players: team.players?.map(p => ({ id: p.id, name: p.name })) || []
+      players: team.players?.map(p => ({ id: p.id, name: p.name, skill: p.skill_level })) || []
     })));
     
     // Generate the schedule using the enhanced algorithm
-    const schedule = roundRobinScheduler.generateSchedule(state.teams);
+    const schedule = roundRobinScheduler.generateSchedule(validTeams);
     
     if (!schedule || schedule.length === 0) {
-      throw new Error('No schedule was generated from the teams');
+      throw new Error('No valid matches could be generated. Please check team compositions and skill combinations');
     }
     
     console.log('✅ Generated schedule:', schedule);
@@ -434,6 +455,7 @@ const generateRoundRobinSchedule = async () => {
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
   }
 };
+
 
 // ENHANCED: Team generation with better validation
 const generateAutomaticTeams = async (players) => {

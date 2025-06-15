@@ -92,10 +92,11 @@ class SupabaseService {
     if (error) throw error;
   }
 
-  // Team operations
-// Enhanced Teams Query with Proper Player Loading
+// Enhanced Teams Query with Robust Error Handling
 async getTeams() {
   try {
+    console.log('🔍 Fetching teams with players...');
+    
     const { data, error } = await supabase
       .from('teams')
       .select(`
@@ -118,35 +119,70 @@ async getTeams() {
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('Supabase teams query error:', error);
+      console.error('❌ Supabase teams query error:', error);
       throw error;
     }
 
-    // Transform data to ensure consistent structure
+    console.log('📄 Raw teams data from Supabase:', data);
+
+    // Enhanced data transformation with validation
     const transformedTeams = (data || []).map(team => {
       // Extract players from the junction table structure
-      const players = team.team_players?.map(tp => tp.players).filter(Boolean) || [];
+      const players = team.team_players?.map(tp => {
+        if (!tp.players) {
+          console.warn(`⚠️ Missing player data for team ${team.name}, player_id: ${tp.player_id}`);
+          return null;
+        }
+        return tp.players;
+      }).filter(Boolean) || [];
       
-      return {
+      // Validate team structure
+      if (players.length === 0) {
+        console.warn(`⚠️ Team ${team.name} has no associated players`);
+      } else if (players.length !== 2) {
+        console.warn(`⚠️ Team ${team.name} has ${players.length} players, expected 2`);
+      }
+      
+      const transformedTeam = {
         ...team,
-        players: players, // Ensure players array exists
-        playerCount: players.length // Add debug info
+        players: players,
+        playerCount: players.length,
+        isValid: players.length === 2 && players.every(p => p.id && p.name && p.skill_level)
       };
+
+      console.log(`🔍 Transformed team ${team.name}:`, {
+        id: transformedTeam.id,
+        name: transformedTeam.name,
+        playerCount: transformedTeam.playerCount,
+        isValid: transformedTeam.isValid,
+        players: transformedTeam.players?.map(p => ({ id: p.id, name: p.name, skill: p.skill_level }))
+      });
+
+      return transformedTeam;
     });
 
-    console.log('📊 Loaded teams with player data:', transformedTeams.map(t => ({
-      id: t.id,
-      name: t.name,
-      playerCount: t.playerCount,
-      players: t.players?.map(p => p.name)
-    })));
+    // Filter out invalid teams for scheduling
+    const validTeams = transformedTeams.filter(team => team.isValid);
+    const invalidTeams = transformedTeams.filter(team => !team.isValid);
 
+    if (invalidTeams.length > 0) {
+      console.warn(`⚠️ Found ${invalidTeams.length} invalid teams:`, 
+        invalidTeams.map(t => `${t.name} (${t.playerCount} players)`));
+    }
+
+    console.log(`✅ Loaded ${validTeams.length} valid teams, ${invalidTeams.length} invalid teams`);
+    
+    // Return all teams but mark validity for debugging
     return transformedTeams;
+    
   } catch (error) {
-    console.error('Error in getTeams:', error);
-    throw error;
+    console.error('💥 Error in getTeams:', error);
+    throw new Error(`Failed to load teams: ${error.message}`);
   }
 }
+	
+
+  // Team operations
 
   async addTeam(teamData) {
     console.log('Adding team with data:', teamData);
@@ -471,6 +507,64 @@ async addMatches(matchesData) {
     
     if (error) throw error;
   }
+
+// Add this method to your SupabaseService class
+async validateTeamPlayerIntegrity() {
+  console.log('🔍 Checking team-player relationship integrity...');
+  
+  try {
+    // Check for teams without players
+    const { data: teamsWithoutPlayers, error: teamsError } = await supabase
+      .from('teams')
+      .select(`
+        id, name,
+        team_players(count)
+      `);
+    
+    if (teamsError) throw teamsError;
+
+    const emptyTeams = teamsWithoutPlayers.filter(team => 
+      !team.team_players || team.team_players.length === 0 || team.team_players[0].count === 0
+    );
+
+    if (emptyTeams.length > 0) {
+      console.warn('⚠️ Teams without players:', emptyTeams.map(t => t.name));
+    }
+
+    // Check for orphaned team_players entries
+    const { data: orphanedEntries, error: orphanError } = await supabase
+      .from('team_players')
+      .select(`
+        id, team_id, player_id,
+        teams(name),
+        players(name)
+      `);
+    
+    if (orphanError) throw orphanError;
+
+    const orphaned = orphanedEntries.filter(entry => 
+      !entry.teams || !entry.players
+    );
+
+    if (orphaned.length > 0) {
+      console.warn('⚠️ Orphaned team-player relationships:', orphaned);
+    }
+
+    console.log(`✅ Integrity check complete: ${emptyTeams.length} empty teams, ${orphaned.length} orphaned entries`);
+    
+    return {
+      emptyTeams,
+      orphanedEntries: orphaned,
+      isHealthy: emptyTeams.length === 0 && orphaned.length === 0
+    };
+    
+  } catch (error) {
+    console.error('💥 Integrity check failed:', error);
+    throw error;
+  }
+}
+
+
 }
 
 export const supabaseService = new SupabaseService();

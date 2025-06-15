@@ -404,53 +404,96 @@ validateNoPlayerOverlap(team1, team2) {
   return totalPlayers === 4;
 }
 	
-
-
-  // Comprehensive team validation
-  validateTeamsForScheduling(teams) {
-    const errors = [];
+// Enhanced team validation with detailed error reporting
+validateTeamsForScheduling(teams) {
+  console.log('🔍 Validating teams for scheduling:', teams.length, 'teams');
+  const errors = [];
+  const warnings = [];
+  
+  if (!teams || !Array.isArray(teams)) {
+    errors.push('Teams data is not a valid array');
+    return { isValid: false, errors, warnings };
+  }
+  
+  for (const team of teams) {
+    const teamName = team.name || `Team ${team.id || 'Unknown'}`;
     
-    for (const team of teams) {
-      // Check basic team structure
-      if (!team.id) {
-        errors.push(`Team missing ID: ${team.name || 'unnamed'}`);
-        continue;
-      }
-      
-      if (!team.name) {
-        errors.push(`Team ${team.id} missing name`);
-      }
-
-      // Critical: Check players array
-      if (!team.players || !Array.isArray(team.players)) {
-        errors.push(`Team ${team.name} has no players array`);
-        continue;
-      }
-
-      if (team.players.length !== 2) {
-        errors.push(`Team ${team.name} has ${team.players.length} players, expected 2`);
-        continue;
-      }
-
-      // Validate individual players
-      for (const player of team.players) {
-        if (!player.id) {
-          errors.push(`Team ${team.name} has player without ID`);
-        }
-        if (!player.name) {
-          errors.push(`Team ${team.name} has player without name`);
-        }
-        if (!player.skill_level) {
-          errors.push(`Team ${team.name} has player ${player.name} without skill level`);
-        }
-      }
+    // Check basic team structure
+    if (!team.id) {
+      errors.push(`${teamName}: Missing team ID`);
+      continue;
+    }
+    
+    if (!team.name) {
+      warnings.push(`Team ${team.id}: Missing team name`);
     }
 
-    return {
-      isValid: errors.length === 0,
-      errors: errors
-    };
+    // Critical: Check players array existence and structure
+    if (!team.players) {
+      errors.push(`${teamName}: Missing players property`);
+      continue;
+    }
+    
+    if (!Array.isArray(team.players)) {
+      errors.push(`${teamName}: Players is not an array (type: ${typeof team.players})`);
+      continue;
+    }
+
+    if (team.players.length === 0) {
+      errors.push(`${teamName}: Players array is empty`);
+      continue;
+    }
+
+    if (team.players.length !== 2) {
+      errors.push(`${teamName}: Has ${team.players.length} players, expected exactly 2`);
+      continue;
+    }
+
+    // Validate individual players
+    team.players.forEach((player, index) => {
+      if (!player) {
+        errors.push(`${teamName}: Player ${index + 1} is null/undefined`);
+        return;
+      }
+      
+      if (!player.id) {
+        errors.push(`${teamName}: Player ${index + 1} missing ID`);
+      }
+      
+      if (!player.name) {
+        warnings.push(`${teamName}: Player ${index + 1} missing name`);
+      }
+      
+      if (!player.skill_level) {
+        errors.push(`${teamName}: Player ${index + 1} (${player.name || 'unnamed'}) missing skill level`);
+      }
+    });
   }
+
+  // Log validation results
+  if (errors.length > 0) {
+    console.error('❌ Team validation errors:', errors);
+  }
+  
+  if (warnings.length > 0) {
+    console.warn('⚠️ Team validation warnings:', warnings);
+  }
+
+  const validTeamsCount = teams.filter(team => 
+    team.players && Array.isArray(team.players) && team.players.length === 2
+  ).length;
+
+  console.log(`📊 Validation summary: ${validTeamsCount}/${teams.length} teams valid`);
+
+  return {
+    isValid: errors.length === 0,
+    errors: errors,
+    warnings: warnings,
+    validTeamsCount: validTeamsCount,
+    totalTeams: teams.length
+  };
+}
+
 
   // Group teams by skill combination
   groupTeamsBySkillCombination(teams) {
