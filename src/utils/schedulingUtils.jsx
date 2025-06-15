@@ -1,56 +1,47 @@
-// Enhanced Round Robin Scheduler for Badminton League with Error Handling and Custom Team Naming
+// Enhanced Round Robin Scheduler - Standalone Version
 export class RoundRobinScheduler {
   
-  // Generate all possible team combinations with custom naming
   generateSkillBasedTeams(players) {
-    console.log('Generating teams from players:', players);
+    console.log('Starting generateSkillBasedTeams with players:', players);
     
-    if (!players || players.length < 2) {
-      console.warn('Not enough players to generate teams');
+    if (!players || !Array.isArray(players) || players.length < 2) {
+      console.warn('Invalid or insufficient players for team generation');
       return [];
     }
 
     const teams = [];
-    let teamCounter = 1;
-
-    // Group players by gender and skill
-    const genderSkillGroups = this.groupPlayersByGenderAndSkill(players);
-    console.log('Players grouped by gender and skill:', genderSkillGroups);
-
-    // Helper function to create teams with player-name-based naming
-    const createTeam = (player1, player2, combination, type = 'same-gender') => {
-      // NEW FEATURE: Use first words of player names for team naming
-      const player1FirstName = this.getFirstWord(player1.name || 'Player1');
-      const player2FirstName = this.getFirstWord(player2.name || 'Player2');
-      const teamName = `${player1FirstName}-${player2FirstName}`;
-      
-      return {
-        name: teamName, // CHANGED: Custom naming based on player names
-        skill_combination: combination,
-        team_type: type,
-        playerIds: [player1.id, player2.id],
-        players: [player1, player2]
-      };
-    };
 
     try {
-      // 1. Generate same-gender teams (Male teams)
+      // Group players by gender and skill
+      const genderSkillGroups = this.groupPlayersByGenderAndSkill(players);
+      
+      // Helper function to create teams with player-name-based naming
+      const createTeam = (player1, player2, combination, type = 'same-gender') => {
+        const player1FirstName = this.getFirstWord(player1.name || 'Player1');
+        const player2FirstName = this.getFirstWord(player2.name || 'Player2');
+        const teamName = `${player1FirstName}-${player2FirstName}`;
+        
+        return {
+          name: teamName,
+          skill_combination: combination,
+          team_type: type,
+          playerIds: [player1.id, player2.id],
+          players: [player1, player2]
+        };
+      };
+
+      // Generate same-gender teams
       if (genderSkillGroups.Male) {
-        const maleTeams = this.generateSameGenderTeams(genderSkillGroups.Male, 'Male');
+        const maleTeams = this.generateSameGenderTeams(genderSkillGroups.Male);
         teams.push(...maleTeams.map(team => createTeam(team.players[0], team.players[1], team.skill_combination, 'male')));
       }
 
-      // 2. Generate same-gender teams (Female teams)
       if (genderSkillGroups.Female) {
-        const femaleTeams = this.generateSameGenderTeams(genderSkillGroups.Female, 'Female');
+        const femaleTeams = this.generateSameGenderTeams(genderSkillGroups.Female);
         teams.push(...femaleTeams.map(team => createTeam(team.players[0], team.players[1], team.skill_combination, 'female')));
       }
 
-      // 3. Generate mixed doubles teams (one male, one female)
-      const mixedTeams = this.generateMixedDoublesTeams(genderSkillGroups);
-      teams.push(...mixedTeams.map(team => createTeam(team.players[0], team.players[1], team.skill_combination, 'mixed-doubles')));
-
-      console.log('Generated teams:', teams);
+      console.log('Successfully generated teams:', teams);
       return teams;
     } catch (error) {
       console.error('Error in generateSkillBasedTeams:', error);
@@ -58,7 +49,6 @@ export class RoundRobinScheduler {
     }
   }
 
-  // NEW FEATURE: Extract first word from player name
   getFirstWord(fullName) {
     if (!fullName || typeof fullName !== 'string') {
       return 'Unknown';
@@ -66,20 +56,15 @@ export class RoundRobinScheduler {
     return fullName.trim().split(' ')[0] || 'Unknown';
   }
 
-  // Enhanced error handling for all methods
   groupPlayersByGenderAndSkill(players) {
     const groups = {};
     
     players.forEach(player => {
-      const gender = player.gender;
-      const skill = player.skill_level;
+      const gender = player.gender || 'Unknown';
+      const skill = player.skill_level || 'Beginner';
       
-      if (!groups[gender]) {
-        groups[gender] = {};
-      }
-      if (!groups[gender][skill]) {
-        groups[gender][skill] = [];
-      }
+      if (!groups[gender]) groups[gender] = {};
+      if (!groups[gender][skill]) groups[gender][skill] = [];
       
       groups[gender][skill].push(player);
     });
@@ -87,8 +72,7 @@ export class RoundRobinScheduler {
     return groups;
   }
 
-  // Remaining methods with enhanced error handling...
-  generateSameGenderTeams(genderGroup, gender) {
+  generateSameGenderTeams(genderGroup) {
     const teams = [];
     const validCombinations = [
       ['Advanced', 'Advanced'],
@@ -100,37 +84,73 @@ export class RoundRobinScheduler {
     ];
 
     validCombinations.forEach(([skill1, skill2]) => {
-      try {
-        const players1 = genderGroup[skill1] || [];
-        const players2 = genderGroup[skill2] || [];
-        
-        if (skill1 === skill2) {
-          const pairs = this.createOptimalPairs(players1);
-          pairs.forEach(pair => {
-            teams.push({
-              skill_combination: `${skill1}-${skill2}`,
-              players: pair
-            });
+      const players1 = genderGroup[skill1] || [];
+      const players2 = genderGroup[skill2] || [];
+      
+      if (skill1 === skill2) {
+        const pairs = this.createOptimalPairs(players1);
+        pairs.forEach(pair => {
+          teams.push({
+            skill_combination: `${skill1}-${skill2}`,
+            players: pair
           });
-        } else {
-          const mixedPairs = this.createOptimalMixedPairs(players1, players2);
-          mixedPairs.forEach(pair => {
-            teams.push({
-              skill_combination: `${skill1}-${skill2}`,
-              players: pair
-            });
+        });
+      } else {
+        const mixedPairs = this.createOptimalMixedPairs(players1, players2);
+        mixedPairs.forEach(pair => {
+          teams.push({
+            skill_combination: `${skill1}-${skill2}`,
+            players: pair
           });
-        }
-      } catch (error) {
-        console.error(`Error generating teams for ${skill1}-${skill2}:`, error);
+        });
       }
     });
 
     return teams;
   }
 
-  // Additional methods with comprehensive error handling...
+  createOptimalPairs(players) {
+    const pairs = [];
+    const usedPlayers = new Set();
+    
+    for (let i = 0; i < players.length; i++) {
+      if (usedPlayers.has(players[i].id)) continue;
+      
+      for (let j = i + 1; j < players.length; j++) {
+        if (usedPlayers.has(players[j].id)) continue;
+        
+        pairs.push([players[i], players[j]]);
+        usedPlayers.add(players[i].id);
+        usedPlayers.add(players[j].id);
+        break;
+      }
+    }
+    
+    return pairs;
+  }
+
+  createOptimalMixedPairs(players1, players2) {
+    const pairs = [];
+    const usedFromGroup1 = new Set();
+    const usedFromGroup2 = new Set();
+    
+    for (let i = 0; i < players1.length; i++) {
+      if (usedFromGroup1.has(players1[i].id)) continue;
+      
+      for (let j = 0; j < players2.length; j++) {
+        if (usedFromGroup2.has(players2[j].id)) continue;
+        
+        pairs.push([players1[i], players2[j]]);
+        usedFromGroup1.add(players1[i].id);
+        usedFromGroup2.add(players2[j].id);
+        break;
+      }
+    }
+    
+    return pairs;
+  }
 }
 
+// Export singleton instance
 export const roundRobinScheduler = new RoundRobinScheduler();
 

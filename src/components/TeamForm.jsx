@@ -1,104 +1,79 @@
 import React, { useState, useEffect } from 'react';
 import { validationUtils } from '../utils/validationUtils';
-import { roundRobinScheduler } from '../utils/schedulingUtils';
 
 const TeamForm = ({ team, players, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: '',
+    skillCombination: '',
     playerIds: []
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [skillCombination, setSkillCombination] = useState('');
+
+  // Debug log to verify players prop
+  console.log('TeamForm rendered with players:', players);
 
   useEffect(() => {
     if (team) {
       setFormData({
         name: team.name || '',
-        playerIds: team.team_players?.map(tp => tp.player_id) || []
+        skillCombination: team.skill_combination || '',
+        playerIds: team.team_players 
+          ? team.team_players.map(tp => tp.player_id || (tp.players && tp.players.id)) 
+          : team.playerIds || []
       });
-      setSkillCombination(team.skill_combination || '');
     }
   }, [team]);
 
-  useEffect(() => {
-    // Update skill combination when players are selected
-    if (formData.playerIds.length === 2) {
-      const selectedPlayers = players.filter(p => formData.playerIds.includes(p.id));
-      const validation = roundRobinScheduler.validateTeamCombination(selectedPlayers);
-      if (validation.valid) {
-        setSkillCombination(validation.combination);
-      }
-    } else {
-      setSkillCombination('');
-    }
-  }, [formData.playerIds, players]);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+    
+    if (name === 'playerIds') {
+      const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
+      setFormData(prev => ({ ...prev, [name]: selectedOptions }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
-  };
 
-  const handlePlayerSelection = (playerId) => {
-    setFormData(prev => {
-      const newPlayerIds = prev.playerIds.includes(playerId)
-        ? prev.playerIds.filter(id => id !== playerId)
-        : prev.playerIds.length < 2
-          ? [...prev.playerIds, playerId]
-          : [prev.playerIds[1], playerId]; // Replace first player if already 2 selected
-
-      return { ...prev, playerIds: newPlayerIds };
-    });
-
-    if (errors.players) {
-      setErrors(prev => ({ ...prev, players: '' }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Team form submitted with data:', formData);
 
-    const teamData = {
-      ...formData,
-      skillCombination
-    };
-
-    const validation = validationUtils.validateTeam(teamData);
+    const validation = validationUtils.validateTeam(formData);
     if (!validation.isValid) {
       setErrors(validation.errors);
       return;
     }
 
-    // Validate team combination
-    const selectedPlayers = players.filter(p => formData.playerIds.includes(p.id));
-    const combinationValidation = roundRobinScheduler.validateTeamCombination(selectedPlayers);
-    if (!combinationValidation.valid) {
-      setErrors({ players: combinationValidation.message });
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      await onSubmit({
-        ...teamData,
-        skillCombination: combinationValidation.combination
-      });
+      await onSubmit(formData);
     } catch (error) {
       console.error('Error submitting team form:', error);
+      setErrors({ submit: 'Failed to save team. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Ensure players is always an array
+  const availablePlayers = Array.isArray(players) ? players : [];
+  
+  if (availablePlayers.length === 0) {
+    return (
+      <div className="team-form-error">
+        <p>No players available to create a team.</p>
+        <p>Please add players first.</p>
+        <button onClick={onCancel} className="btn btn-secondary">Close</button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="team-form">
@@ -117,36 +92,49 @@ const TeamForm = ({ team, players, onSubmit, onCancel }) => {
       </div>
 
       <div className="form-group">
-        <label>Select Players (exactly 2) *</label>
-        <div className="player-selection">
-          {players.map(player => (
-            <div
-              key={player.id}
-              className={`player-option ${
-                formData.playerIds.includes(player.id) ? 'selected' : ''
-              } ${
-                formData.playerIds.length >= 2 && !formData.playerIds.includes(player.id) 
-                  ? 'disabled' : ''
-              }`}
-              onClick={() => handlePlayerSelection(player.id)}
-            >
-              <span className="player-name">{player.name}</span>
-              <span className={`skill-badge skill-badge-${player.skill_level.toLowerCase()}`}>
-                {player.skill_level}
-              </span>
-            </div>
+        <label htmlFor="skillCombination">Skill Combination *</label>
+        <select
+          id="skillCombination"
+          name="skillCombination"
+          value={formData.skillCombination}
+          onChange={handleChange}
+          className={errors.skillCombination ? 'error' : ''}
+        >
+          <option value="">Select Skill Combination</option>
+          <option value="Advanced-Advanced">Advanced-Advanced</option>
+          <option value="Advanced-Intermediate">Advanced-Intermediate</option>
+          <option value="Advanced-Beginner">Advanced-Beginner</option>
+          <option value="Intermediate-Intermediate">Intermediate-Intermediate</option>
+          <option value="Intermediate-Beginner">Intermediate-Beginner</option>
+          <option value="Beginner-Beginner">Beginner-Beginner</option>
+        </select>
+        {errors.skillCombination && <span className="error-text">{errors.skillCombination}</span>}
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="playerIds">Players (select 2) *</label>
+        <select
+          id="playerIds"
+          name="playerIds"
+          multiple
+          value={formData.playerIds}
+          onChange={handleChange}
+          className={errors.players ? 'error' : ''}
+          size={Math.min(6, availablePlayers.length)}
+        >
+          {availablePlayers.map(player => (
+            <option key={player.id} value={player.id}>
+              {player.name} ({player.skill_level})
+              {player.gender ? ` - ${player.gender}` : ''}
+            </option>
           ))}
-        </div>
+        </select>
+        <small>Hold Ctrl (or Cmd on Mac) to select multiple players</small>
         {errors.players && <span className="error-text">{errors.players}</span>}
       </div>
 
-      {skillCombination && (
-        <div className="skill-combination">
-          <label>Skill Combination</label>
-          <div className="combination-display">
-            <span className="combination-badge">{skillCombination}</span>
-          </div>
-        </div>
+      {errors.submit && (
+        <div className="error-message">{errors.submit}</div>
       )}
 
       <div className="form-actions">
@@ -162,3 +150,4 @@ const TeamForm = ({ team, players, onSubmit, onCancel }) => {
 };
 
 export default TeamForm;
+
