@@ -41,6 +41,11 @@ export class RoundRobinScheduler {
         teams.push(...femaleTeams.map(team => createTeam(team.players[0], team.players[1], team.skill_combination, 'female')));
       }
 
+// 3. Generate mixed doubles teams (one male, one female)
+    const mixedTeams = this.generateMixedDoublesTeams(genderSkillGroups);
+    teams.push(...mixedTeams.map(team => createTeam(team.players[0], team.players[1], team.skill_combination, 'mixed-doubles')));
+
+
       console.log('Successfully generated teams:', teams);
       return teams;
     } catch (error) {
@@ -108,6 +113,63 @@ export class RoundRobinScheduler {
 
     return teams;
   }
+
+  // Generate mixed doubles teams (one male, one female)
+  generateMixedDoublesTeams(genderSkillGroups) {
+    const teams = [];
+    const malePlayers = this.flattenGenderGroup(genderSkillGroups.Male || {});
+    const femalePlayers = this.flattenGenderGroup(genderSkillGroups.Female || {});
+    
+    if (malePlayers.length === 0 || femalePlayers.length === 0) {
+      return teams;
+    }
+
+    // Create one mixed doubles team per player constraint
+    const usedMales = new Set();
+    const usedFemales = new Set();
+    
+    // Try to create balanced skill combinations for mixed doubles
+    const skillCombinations = [
+      ['Advanced', 'Advanced'],
+      ['Advanced', 'Intermediate'],
+      ['Advanced', 'Beginner'],
+      ['Intermediate', 'Intermediate'],
+      ['Intermediate', 'Beginner'],
+      ['Beginner', 'Beginner']
+    ];
+
+    skillCombinations.forEach(([skill1, skill2]) => {
+      const availableMales = malePlayers.filter(p => p.skill_level === skill1 && !usedMales.has(p.id));
+      const availableFemales = femalePlayers.filter(p => p.skill_level === skill2 && !usedFemales.has(p.id));
+      
+      const pairCount = Math.min(availableMales.length, availableFemales.length);
+      
+      for (let i = 0; i < pairCount; i++) {
+        const male = availableMales[i];
+        const female = availableFemales[i];
+        
+        teams.push({
+          skill_combination: `Mixed-${skill1}-${skill2}`,
+          players: [male, female]
+        });
+        
+        usedMales.add(male.id);
+        usedFemales.add(female.id);
+      }
+    });
+
+    return teams;
+  }
+
+  // Flatten gender group to get all players
+  flattenGenderGroup(genderGroup) {
+    const allPlayers = [];
+    Object.values(genderGroup).forEach(skillGroup => {
+      allPlayers.push(...skillGroup);
+    });
+    return allPlayers;
+  }
+
 
   createOptimalPairs(players) {
     const pairs = [];
