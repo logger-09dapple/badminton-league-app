@@ -242,24 +242,28 @@ generateSchedule(teams) {
       console.log(`🎮 Generating same-skill matches for ${skillCombination}`);
       const sameSkillMatches = this.generateRoundRobinForGroup(skillTeams);
       allMatches.push(...sameSkillMatches);
+      console.log(`✅ Added ${sameSkillMatches.length} same-skill matches for ${skillCombination}`);	    
     }
   }
 
   // 2. Generate cross-skill matches (NEW FEATURE)
   const crossSkillMatches = this.generateCrossSkillMatches(groupedTeams);
   allMatches.push(...crossSkillMatches);
+  console.log(`✅ Added ${crossSkillMatches.length} cross-skill matches to main array`);
 
   // 3. Validate all matches for player overlap
   const validMatches = this.validateAllMatches(allMatches, teams);
-  
-  console.log(`🎊 Total matches generated: ${validMatches.length}`);
+  console.log(`📊 Match generation summary:`);
+  console.log(`   - Total generated: ${allMatches.length}`);
+  console.log(`   - Valid matches: ${validMatches.length}`);
+  console.log(`   - Rejected due to overlap: ${allMatches.length - validMatches.length}`);  
   return validMatches;
 }
 
 // NEW: Generate cross-skill matches based on fair competition rules
 generateCrossSkillMatches(groupedTeams) {
   console.log('🔄 Generating cross-skill matches');
-  const crossMatches = [];
+  const crossSkillMatches = [];
   
   // Define fair cross-skill pairings
   const fairPairings = [
@@ -300,12 +304,12 @@ generateCrossSkillMatches(groupedTeams) {
         match.pairing_description = pairing.description;
       });
       
-      crossMatches.push(...crossMatches);
-      console.log(`✅ Generated ${crossMatches.length} cross-skill matches for ${pairing.description}`);
+      crossSkillMatches.push(...crossMatches);
+      console.log(`✅ Generated ${crossSkillMatches.length} cross-skill matches for ${pairing.description}`);
     }
   });
 
-  return crossMatches;
+  return crossSkillMatches;
 }
 
 // NEW: Generate matches between two different skill groups
