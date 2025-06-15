@@ -375,53 +375,51 @@ export function LeagueProvider({ children }) {
     }
   };
 
-// FIXED: Schedule generation with proper validation and skill grouping
+
 const generateRoundRobinSchedule = async () => {
   try {
+    console.log('🚀 Starting match generation process...');
+    
     if (state.teams.length < 2) {
       throw new Error('At least 2 teams are required for scheduling');
     }
 
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
     
-    console.log('🏸 Starting enhanced schedule generation with teams:', state.teams);
+    // Detailed team data logging
+    console.log('📊 Available teams for scheduling:', state.teams.map(team => ({
+      id: team.id,
+      name: team.name,
+      skillCombination: team.skill_combination,
+      playerCount: team.players?.length || 0,
+      players: team.players?.map(p => ({ id: p.id, name: p.name })) || []
+    })));
     
-    // STEP 1: Generate schedule using enhanced algorithm
+    // Generate the schedule using the enhanced algorithm
     const schedule = roundRobinScheduler.generateSchedule(state.teams);
     
     if (!schedule || schedule.length === 0) {
-      throw new Error('No valid matches could be generated. Please check team compositions and skill combinations.');
+      throw new Error('No schedule was generated from the teams');
     }
     
-    console.log('✅ Generated valid schedule:', schedule);
+    console.log('✅ Generated schedule:', schedule);
     
-    // STEP 2: Validate all matches before saving
-    const isValid = roundRobinScheduler.validateAllMatches(schedule, state.teams);
-    if (!isValid) {
-      throw new Error('Generated matches failed validation. Some matches have invalid player assignments.');
-    }
-    
-    // STEP 3: Convert schedule to database-compatible matches  
+    // Convert schedule to database-compatible matches  
     const matchesToAdd = roundRobinScheduler.convertScheduleToMatches(schedule);
     
-    console.log('🗄️ Matches prepared for database:', matchesToAdd);
-    
     if (matchesToAdd.length > 0) {
-      // STEP 4: Save all matches to database
+      console.log('💾 Saving matches to database:', matchesToAdd.length);
+      
+      // Save all matches to database
       const savedMatches = await supabaseService.addMatches(matchesToAdd);
       
-      console.log('💾 Successfully saved matches to database:', savedMatches);
+      console.log('🎉 Successfully saved matches:', savedMatches.length);
       
-      // STEP 5: Update state with new matches
+      // Update state with new matches
       dispatch({ type: ACTION_TYPES.ADD_MATCHES, payload: savedMatches });
       
-      // Also store the schedule for reference
+      // Store the schedule for reference
       dispatch({ type: ACTION_TYPES.GENERATE_SCHEDULE, payload: schedule });
-      
-      // STEP 6: Final validation log
-      console.log(`\n🏆 SCHEDULE GENERATION COMPLETED SUCCESSFULLY:`);
-      console.log(`   📊 Total matches created: ${savedMatches.length}`);
-      console.log(`   🎯 Skill combinations involved: ${[...new Set(schedule.map(m => m.skill_combination))].join(', ')}`);
       
       return schedule;
     } else {
@@ -429,9 +427,9 @@ const generateRoundRobinSchedule = async () => {
     }
     
   } catch (error) {
-    console.error('❌ Schedule generation error:', error);
+    console.error('💥 Schedule generation error:', error);
     dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-    throw error; // Re-throw so component can handle it
+    throw error;
   } finally {
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
   }

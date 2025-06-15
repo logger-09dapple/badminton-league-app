@@ -93,21 +93,60 @@ class SupabaseService {
   }
 
   // Team operations
-  async getTeams() {
+// Enhanced Teams Query with Proper Player Loading
+async getTeams() {
+  try {
     const { data, error } = await supabase
       .from('teams')
       .select(`
         *,
         team_players (
           player_id,
-          players (*)
+          players (
+            id,
+            name,
+            skill_level,
+            gender,
+            email,
+            phone,
+            matches_played,
+            matches_won,
+            points
+          )
         )
       `)
-      .order('points', { ascending: false }); // Order by points for ranking
+      .order('created_at', { ascending: false });
     
-    if (error) throw error;
-    return data || [];
+    if (error) {
+      console.error('Supabase teams query error:', error);
+      throw error;
+    }
+
+    // Transform data to ensure consistent structure
+    const transformedTeams = (data || []).map(team => {
+      // Extract players from the junction table structure
+      const players = team.team_players?.map(tp => tp.players).filter(Boolean) || [];
+      
+      return {
+        ...team,
+        players: players, // Ensure players array exists
+        playerCount: players.length // Add debug info
+      };
+    });
+
+    console.log('📊 Loaded teams with player data:', transformedTeams.map(t => ({
+      id: t.id,
+      name: t.name,
+      playerCount: t.playerCount,
+      players: t.players?.map(p => p.name)
+    })));
+
+    return transformedTeams;
+  } catch (error) {
+    console.error('Error in getTeams:', error);
+    throw error;
   }
+}
 
   async addTeam(teamData) {
     console.log('Adding team with data:', teamData);
