@@ -368,32 +368,36 @@ async getTeams() {
     return data;
   }
 
-  // NEW: Bulk add matches for schedule generation
-  async addMatches(matchesData) {
-    console.log('Adding matches in bulk:', matchesData);
-    
-    const { data, error } = await supabase
-      .from('matches')
-      .insert(matchesData.map(match => ({
-        team1_id: match.team1_id,
-        team2_id: match.team2_id,
-        scheduled_date: match.scheduled_date || null, // FIXED: Use snake_case
-        status: match.status || 'scheduled'
-      })))
-      .select(`
-        *,
-        team1:teams!matches_team1_id_fkey(*),
-        team2:teams!matches_team2_id_fkey(*)
-      `);
-    
-    if (error) {
-      console.error('Bulk insert error:', error);
-      throw error;
-    }
-    
-    console.log('Successfully added matches:', data);
-    return data || [];
+// Enhanced match insertion with cross-skill metadata
+async addMatches(matchesData) {
+  console.log('💾 Adding matches with cross-skill support:', matchesData.length);
+  
+  const { data, error } = await supabase
+    .from('matches')
+    .insert(matchesData.map(match => ({
+      team1_id: match.team1_id,
+      team2_id: match.team2_id,
+      scheduled_date: match.scheduled_date || null,
+      status: match.status || 'scheduled',
+      match_type: match.match_type || 'same-skill', // NEW: Track match type
+      pairing_description: match.pairing_description || null, // NEW: Description
+      skill_combination_1: match.skill_combination_1 || null, // NEW: Team 1 skill
+      skill_combination_2: match.skill_combination_2 || null  // NEW: Team 2 skill
+    })))
+    .select(`
+      *,
+      team1:teams!matches_team1_id_fkey(*),
+      team2:teams!matches_team2_id_fkey(*)
+    `);
+  
+  if (error) {
+    console.error('❌ Bulk insert error:', error);
+    throw error;
   }
+  
+  console.log('✅ Successfully added matches:', data?.length || 0);
+  return data || [];
+}
 
   // ENHANCED: Update match with automatic completion and statistics update
   async updateMatch(id, matchData) {

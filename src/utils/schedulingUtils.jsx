@@ -212,50 +212,199 @@ export class RoundRobinScheduler {
     return pairs;
   }
 
-  // Enhanced schedule generation with detailed validation
-  generateSchedule(teams) {
-    console.log('🎯 Starting schedule generation with teams:', teams);
-    
-    // Comprehensive validation
-    if (!teams || !Array.isArray(teams)) {
-      console.error('❌ Invalid teams data: not an array');
-      throw new Error('Teams data is invalid or not an array');
-    }
-    
-    if (teams.length < 2) {
-      console.error('❌ Insufficient teams:', teams.length);
-      throw new Error(`Need at least 2 teams, got ${teams.length}`);
-    }
-
-    // Validate each team has proper player data
-    const validationResults = this.validateTeamsForScheduling(teams);
-    if (!validationResults.isValid) {
-      console.error('❌ Team validation failed:', validationResults.errors);
-      throw new Error(`Team validation failed: ${validationResults.errors.join(', ')}`);
-    }
-
-    // Group teams by skill combination for fair matching
-    const groupedTeams = this.groupTeamsBySkillCombination(teams);
-    console.log('📋 Teams grouped by skill:', Object.keys(groupedTeams).map(skill => 
-      `${skill}: ${groupedTeams[skill].length} teams`
-    ));
-
-    const allMatches = [];
-    
-    // Generate matches within each skill group
-    for (const [skillCombination, skillTeams] of Object.entries(groupedTeams)) {
-      if (skillTeams.length >= 2) {
-        console.log(`🎮 Generating matches for ${skillCombination}: ${skillTeams.length} teams`);
-        const skillMatches = this.generateRoundRobinForGroup(skillTeams);
-        const validMatches = this.validateMatches(skillMatches);
-        allMatches.push(...validMatches);
-        console.log(`✅ Generated ${validMatches.length} valid matches for ${skillCombination}`);
-      }
-    }
-
-    console.log(`🎊 Total matches generated: ${allMatches.length}`);
-    return allMatches;
+// Enhanced schedule generation with cross-skill matching
+generateSchedule(teams) {
+  console.log('🎯 Starting enhanced schedule generation with cross-skill matching');
+  
+  if (!teams || !Array.isArray(teams)) {
+    throw new Error('Teams data is invalid or not an array');
   }
+  
+  if (teams.length < 2) {
+    throw new Error(`Need at least 2 teams, got ${teams.length}`);
+  }
+
+  // Validate teams before proceeding
+  const validationResults = this.validateTeamsForScheduling(teams);
+  if (!validationResults.isValid) {
+    throw new Error(`Team validation failed: ${validationResults.errors.join(', ')}`);
+  }
+
+  // Group teams by skill combination
+  const groupedTeams = this.groupTeamsBySkillCombination(teams);
+  console.log('📋 Teams grouped by skill:', Object.keys(groupedTeams));
+
+  const allMatches = [];
+  
+  // 1. Generate same-skill matches (existing logic)
+  for (const [skillCombination, skillTeams] of Object.entries(groupedTeams)) {
+    if (skillTeams.length >= 2) {
+      console.log(`🎮 Generating same-skill matches for ${skillCombination}`);
+      const sameSkillMatches = this.generateRoundRobinForGroup(skillTeams);
+      allMatches.push(...sameSkillMatches);
+    }
+  }
+
+  // 2. Generate cross-skill matches (NEW FEATURE)
+  const crossSkillMatches = this.generateCrossSkillMatches(groupedTeams);
+  allMatches.push(...crossSkillMatches);
+
+  // 3. Validate all matches for player overlap
+  const validMatches = this.validateAllMatches(allMatches, teams);
+  
+  console.log(`🎊 Total matches generated: ${validMatches.length}`);
+  return validMatches;
+}
+
+// NEW: Generate cross-skill matches based on fair competition rules
+generateCrossSkillMatches(groupedTeams) {
+  console.log('🔄 Generating cross-skill matches');
+  const crossMatches = [];
+  
+  // Define fair cross-skill pairings
+  const fairPairings = [
+    {
+      team1Type: 'Advanced-Intermediate',
+      team2Type: 'Advanced-Advanced',
+      description: 'Mixed advanced vs pure advanced'
+    },
+    {
+      team1Type: 'Intermediate-Intermediate', 
+      team2Type: 'Advanced-Beginner',
+      description: 'Pure intermediate vs mixed advanced-beginner'
+    },
+    {
+      team1Type: 'Intermediate-Beginner',
+      team2Type: 'Beginner-Beginner', 
+      description: 'Mixed intermediate-beginner vs pure beginner'
+    },
+    {
+      team1Type: 'Intermediate-Intermediate',
+      team2Type: 'Intermediate-Beginner',
+      description: 'Pure intermediate vs mixed intermediate-beginner'
+    }
+  ];
+
+  // Generate matches for each fair pairing
+  fairPairings.forEach(pairing => {
+    const group1Teams = groupedTeams[pairing.team1Type] || [];
+    const group2Teams = groupedTeams[pairing.team2Type] || [];
+    
+    if (group1Teams.length > 0 && group2Teams.length > 0) {
+      console.log(`⚔️ Creating ${pairing.description} matches: ${group1Teams.length} vs ${group2Teams.length} teams`);
+      
+      // Create round-robin between the two skill groups
+      const crossMatches = this.generateCrossGroupMatches(group1Teams, group2Teams);
+      crossMatches.forEach(match => {
+        match.match_type = 'cross-skill';
+        match.pairing_description = pairing.description;
+      });
+      
+      crossMatches.push(...crossMatches);
+      console.log(`✅ Generated ${crossMatches.length} cross-skill matches for ${pairing.description}`);
+    }
+  });
+
+  return crossMatches;
+}
+
+// NEW: Generate matches between two different skill groups
+generateCrossGroupMatches(group1Teams, group2Teams) {
+  const matches = [];
+  
+  // Create matches between every team in group1 vs every team in group2
+  group1Teams.forEach(team1 => {
+    group2Teams.forEach(team2 => {
+      matches.push({
+        team1_id: team1.id,
+        team2_id: team2.id,
+        status: 'scheduled',
+        skill_combination_1: team1.skill_combination,
+        skill_combination_2: team2.skill_combination
+      });
+    });
+  });
+  
+  return matches;
+}
+
+// Enhanced validation for cross-skill matches
+validateAllMatches(matches, teams) {
+  console.log('🔍 Validating all matches for player overlap and fairness');
+  
+  // Create team lookup for quick access
+  const teamLookup = {};
+  teams.forEach(team => {
+    teamLookup[team.id] = team;
+  });
+  
+  const validMatches = matches.filter(match => {
+    const team1 = teamLookup[match.team1_id];
+    const team2 = teamLookup[match.team2_id];
+    
+    if (!team1 || !team2) {
+      console.warn('⚠️ Match references non-existent team:', match);
+      return false;
+    }
+    
+    // Validate no player overlap
+    const isValid = this.validateNoPlayerOverlap(team1, team2);
+    
+    if (!isValid) {
+      console.warn('🚫 Match rejected due to player overlap:', {
+        team1: team1.name,
+        team2: team2.name
+      });
+    }
+    
+    return isValid;
+  });
+  
+  console.log(`✅ Validated ${validMatches.length} matches out of ${matches.length} generated`);
+  return validMatches;
+}
+
+// Enhanced player overlap validation with detailed logging
+validateNoPlayerOverlap(team1, team2) {
+  if (!team1.players || !team2.players) {
+    console.error('🚫 Missing player data:', {
+      team1: team1.name,
+      team1HasPlayers: !!team1.players,
+      team2: team2.name, 
+      team2HasPlayers: !!team2.players
+    });
+    return false;
+  }
+
+  if (team1.players.length !== 2 || team2.players.length !== 2) {
+    console.error('🚫 Invalid player count:', {
+      team1: team1.name,
+      team1PlayerCount: team1.players.length,
+      team2: team2.name,
+      team2PlayerCount: team2.players.length
+    });
+    return false;
+  }
+
+  const team1PlayerIds = team1.players.map(p => p.id);
+  const team2PlayerIds = team2.players.map(p => p.id);
+  
+  const overlap = team1PlayerIds.some(id => team2PlayerIds.includes(id));
+  
+  if (overlap) {
+    console.warn('⚠️ Player overlap detected:', {
+      team1: team1.name,
+      team2: team2.name,
+      overlappingPlayers: team1PlayerIds.filter(id => team2PlayerIds.includes(id))
+    });
+    return false;
+  }
+
+  const totalPlayers = [...new Set([...team1PlayerIds, ...team2PlayerIds])].length;
+  return totalPlayers === 4;
+}
+	
+
 
   // Comprehensive team validation
   validateTeamsForScheduling(teams) {
@@ -301,43 +450,6 @@ export class RoundRobinScheduler {
       isValid: errors.length === 0,
       errors: errors
     };
-  }
-
-  // Enhanced player overlap validation
-  validateNoPlayerOverlap(team1, team2) {
-    if (!team1.players || !team2.players) {
-      console.error('🚫 Invalid player data:', {
-        team1: team1.name,
-        team1Players: team1.players?.length || 0,
-        team2: team2.name,
-        team2Players: team2.players?.length || 0
-      });
-      return false;
-    }
-
-    const team1PlayerIds = team1.players.map(p => p.id);
-    const team2PlayerIds = team2.players.map(p => p.id);
-    
-    const overlap = team1PlayerIds.some(id => team2PlayerIds.includes(id));
-    
-    if (overlap) {
-      console.warn('⚠️ Player overlap detected:', {
-        team1: team1.name,
-        team2: team2.name,
-        team1Players: team1PlayerIds,
-        team2Players: team2PlayerIds
-      });
-    }
-
-    const totalPlayers = [...new Set([...team1PlayerIds, ...team2PlayerIds])].length;
-    console.log('🔍 Player validation:', {
-      team1: team1.name,
-      team2: team2.name,
-      totalUniquePlayers: totalPlayers,
-      hasOverlap: overlap
-    });
-
-    return !overlap && totalPlayers === 4;
   }
 
   // Group teams by skill combination
