@@ -391,7 +391,7 @@ export class RoundRobinScheduler {
       status: match.status || 'scheduled'
     }));
   }
-
+}
 
 // Export singleton instance
 export const roundRobinScheduler = new RoundRobinScheduler();
