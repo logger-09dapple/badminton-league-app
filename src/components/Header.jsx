@@ -10,7 +10,7 @@ const Header = () => {
     { path: '/players', label: 'Players', icon: Users },
     { path: '/teams', label: 'Teams', icon: UserPlus },
     { path: '/matches', label: 'Matches', icon: Calendar },
-    { path: '/statistics', label: 'Statistics', icon: BarChart3 }
+    { path: '/statistics', label: 'Statistics', icon: BarChart3 },
     { path: '/elo-statistics', label: 'ELO Rankings', icon: Award }
   ];
 
