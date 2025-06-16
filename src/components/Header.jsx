@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Users, UserPlus, Calendar, BarChart3, Home } from 'lucide-react';
+import { Users, UserPlus, Calendar, BarChart3, Home, Award } from 'lucide-react';
 
 const Header = () => {
   const location = useLocation();
