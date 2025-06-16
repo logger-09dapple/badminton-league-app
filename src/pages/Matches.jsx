@@ -26,26 +26,68 @@ const Matches = () => {
   const [selectedPlayers, setSelectedPlayers] = useState(new Set());
   const [filteredMatches, setFilteredMatches] = useState([]);
 
-  // Filter matches based on selected players
-  useEffect(() => {
-    if (selectedPlayers.size === 0) {
-      setFilteredMatches(matches);
-    } else {
-      const filtered = matches.filter(match => {
-        // Get all player IDs for both teams in this match
-        const team1PlayerIds = match.team1?.team_players?.map(tp => tp.player_id) || [];
-        const team2PlayerIds = match.team2?.team_players?.map(tp => tp.player_id) || [];
-        const allMatchPlayerIds = [...team1PlayerIds, ...team2PlayerIds];
-        
-        // Check if any of the selected players are in this match
-        return Array.from(selectedPlayers).some(playerId => 
-          allMatchPlayerIds.includes(playerId)
-        );
-      });
-      setFilteredMatches(filtered);
-    }
-  }, [matches, selectedPlayers]);
+//  // Filter matches based on selected players
+//  useEffect(() => {
+//    if (selectedPlayers.size === 0) {
+//      setFilteredMatches(matches);
+//    } else {
+//      const filtered = matches.filter(match => {
+//        // Get all player IDs for both teams in this match
+//        const team1PlayerIds = match.team1?.team_players?.map(tp => tp.player_id) || [];
+//        const team2PlayerIds = match.team2?.team_players?.map(tp => tp.player_id) || [];
+//        const allMatchPlayerIds = [...team1PlayerIds, ...team2PlayerIds];
+//        
+//        // Check if any of the selected players are in this match
+//        return Array.from(selectedPlayers).some(playerId => 
+//          allMatchPlayerIds.includes(playerId)
+//        );
+//      });
+//      setFilteredMatches(filtered);
+//    }
+//  }, [matches, selectedPlayers]);
 
+// Enhanced filter matches based on selected players (exclusive filtering)
+useEffect(() => {
+  if (selectedPlayers.size === 0) {
+    setFilteredMatches(matches);
+  } else {
+    const filtered = matches.filter(match => {
+      // Get all player IDs for both teams in this match
+      const team1PlayerIds = match.team1?.team_players?.map(tp => tp.player_id) || [];
+      const team2PlayerIds = match.team2?.team_players?.map(tp => tp.player_id) || [];
+      const allMatchPlayerIds = [...team1PlayerIds, ...team2PlayerIds];
+      
+      // UPDATED: Check if ALL players in this match are in the selected players set
+      // This ensures only matches between selected players are shown
+      return allMatchPlayerIds.length > 0 && 
+             allMatchPlayerIds.every(playerId => selectedPlayers.has(playerId));
+    });
+    setFilteredMatches(filtered);
+  }
+}, [matches, selectedPlayers]);
+
+// Get count of matches involving only selected players
+const getExclusiveMatchCount = () => {
+  if (selectedPlayers.size === 0) return matches.length;
+  
+  return matches.filter(match => {
+    const team1PlayerIds = match.team1?.team_players?.map(tp => tp.player_id) || [];
+    const team2PlayerIds = match.team2?.team_players?.map(tp => tp.player_id) || [];
+    const allMatchPlayerIds = [...team1PlayerIds, ...team2PlayerIds];
+    
+    return allMatchPlayerIds.length > 0 && 
+           allMatchPlayerIds.every(playerId => selectedPlayers.has(playerId));
+  }).length;
+};
+
+// Get list of selected player names for display
+const getSelectedPlayerNames = () => {
+  return Array.from(selectedPlayers)
+    .map(playerId => players.find(p => p.id === playerId)?.name)
+    .filter(Boolean)
+    .join(', ');
+};
+	
   const handleAddMatch = () => {
     setSelectedMatch(null);
     setIsMatchModalOpen(true);
@@ -211,11 +253,19 @@ const Matches = () => {
                 </label>
               ))}
             </div>
-            {selectedPlayers.size > 0 && (
-              <div className="filter-summary">
-                Showing matches for {selectedPlayers.size} selected player(s)
-              </div>
-            )}
+		{selectedPlayers.size > 0 && (
+		  <div className="filter-summary">
+		    <div className="filter-info">
+		      <strong>Exclusive Filter Active:</strong> Showing matches where ALL players are from the {selectedPlayers.size} selected players
+		    </div>
+		    <div className="selected-players">
+		      <strong>Selected Players:</strong> {getSelectedPlayerNames()}
+		    </div>
+		    <div className="match-count">
+		      <strong>Matching Exclusive Combinations:</strong> {getExclusiveMatchCount()} matches
+		    </div>
+		  </div>
+		)}            
           </div>
         )}
 
