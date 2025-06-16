@@ -182,9 +182,9 @@ export class RoundRobinScheduler {
         //if (usedPlayers.has(players[j].id)) continue;
         
         pairs.push([players[i], players[j]]);
-        usedPlayers.add(players[i].id);
-        usedPlayers.add(players[j].id);
-        break;
+        //usedPlayers.add(players[i].id);
+        //usedPlayers.add(players[j].id);
+        //break;
       }
     }
     
