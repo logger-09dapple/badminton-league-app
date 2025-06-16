@@ -11,6 +11,7 @@ const Header = () => {
     { path: '/teams', label: 'Teams', icon: UserPlus },
     { path: '/matches', label: 'Matches', icon: Calendar },
     { path: '/statistics', label: 'Statistics', icon: BarChart3 }
+    { path: '/elo-statistics', label: 'ELO Rankings', icon: Award }
   ];
 
   return (
@@ -30,10 +31,6 @@ const Header = () => {
                 <Icon size={18} />
                 <span>{label}</span>
               </Link>
-		<Link to="/elo-statistics" className="nav-link">
-		  <Award size={20} />
-		  <span>ELO Rankings</span>
-		</Link>
             ))}
           </nav>
         </div>
