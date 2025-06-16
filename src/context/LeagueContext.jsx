@@ -522,6 +522,90 @@ const generateAutomaticTeams = async (players) => {
   }
 };
 
+// Add this enhanced match update function to your LeagueContext
+
+const updateMatchWithEloProcessing = async (matchId, matchData) => {
+  try {
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+    
+    // Get current match with team and player data
+    const currentMatch = state.matches.find(m => m.id === matchId);
+    if (!currentMatch) {
+      throw new Error('Match not found');
+    }
+
+    // Only process ELO if scores are being recorded
+    if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
+      // Get team players for ELO calculation
+      const team1Players = currentMatch.team1?.team_players?.map(tp => ({
+        ...tp.players,
+        elo_rating: tp.players.elo_rating || 1500,
+        elo_games_played: tp.players.elo_games_played || 0
+      })) || [];
+      
+      const team2Players = currentMatch.team2?.team_players?.map(tp => ({
+        ...tp.players,
+        elo_rating: tp.players.elo_rating || 1500,
+        elo_games_played: tp.players.elo_games_played || 0
+      })) || [];
+
+      if (team1Players.length === 2 && team2Players.length === 2) {
+        // Calculate ELO updates
+        const eloUpdates = badmintonEloSystem.processMatchResult(
+          team1Players,
+          team2Players,
+          matchData.team1Score,
+          matchData.team2Score
+        );
+
+        // Add additional data needed for database updates
+        const enhancedEloUpdates = eloUpdates.map(update => ({
+          ...update,
+          oldPeakRating: team1Players.concat(team2Players)
+            .find(p => p.id === update.playerId)?.peak_elo_rating || update.oldRating,
+          oldGamesPlayed: team1Players.concat(team2Players)
+            .find(p => p.id === update.playerId)?.elo_games_played || 0
+        }));
+
+        // Update match with ELO processing
+        const updatedMatch = await supabaseService.updateMatchWithElo(
+          matchId, 
+          matchData, 
+          enhancedEloUpdates
+        );
+
+        // Update local state
+        dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+        
+        // Reload player and team data to reflect ELO changes
+        await loadInitialData();
+        
+        return { 
+          match: updatedMatch, 
+          eloUpdates: enhancedEloUpdates 
+        };
+      } else {
+        // Fallback to regular match update if player data is incomplete
+        console.warn('Incomplete player data for ELO calculation, using regular update');
+        const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
+        dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+        return { match: updatedMatch, eloUpdates: [] };
+      }
+    } else {
+      // Regular match update without scores
+      const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
+      dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+      return { match: updatedMatch, eloUpdates: [] };
+    }
+    
+  } catch (error) {
+    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+    throw error;
+  } finally {
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false));
+  }
+};
+
   const value = {
     ...state,
     addPlayer,
@@ -534,6 +618,7 @@ const generateAutomaticTeams = async (players) => {
     addMatch,
     updateMatch,
     deleteAllMatches, // Export the new function
+    updateMatchWithEloProcessing,	  
     generateRoundRobinSchedule,
     loadInitialData
   };

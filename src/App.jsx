@@ -8,6 +8,7 @@ import Players from './pages/Players';
 import Teams from './pages/Teams';
 import Matches from './pages/Matches';
 import Statistics from './pages/Statistics';
+import EloStatistics from './components/EloStatistics';
 import './App.css';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
               <Route path="/teams" element={<Teams />} />
               <Route path="/matches" element={<Matches />} />
               <Route path="/statistics" element={<Statistics />} />
+	      <Route path="/elo-statistics" element={<EloStatistics />} />	  
             </Routes>
           </main>
         </div>

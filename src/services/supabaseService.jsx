@@ -570,6 +570,204 @@ async validateTeamPlayerIntegrity() {
   }
 }
 
+// Add these methods to your existing SupabaseService class
+
+// Update player with ELO rating
+async updatePlayerEloRating(playerId, eloData) {
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .update({
+        elo_rating: eloData.newRating,
+        peak_elo_rating: Math.max(eloData.newRating, eloData.oldPeakRating || 0),
+        skill_level: eloData.newSkillLevel,
+        elo_games_played: (eloData.oldGamesPlayed || 0) + 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', playerId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating player ELO:', error);
+    throw error;
+  }
+}
+
+// Record rating history
+async recordRatingHistory(historyData) {
+  try {
+    const { data, error } = await supabase
+      .from('player_rating_history')
+      .insert(historyData)
+      .select();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error recording rating history:', error);
+    throw error;
+  }
+}
+
+// Record skill level changes
+async recordSkillLevelChange(changeData) {
+  try {
+    const { data, error } = await supabase
+      .from('skill_level_changes')
+      .insert({
+        player_id: changeData.playerId,
+        old_skill_level: changeData.oldSkillLevel,
+        new_skill_level: changeData.newSkillLevel,
+        elo_rating: changeData.eloRating,
+        reason: changeData.reason || 'ELO threshold crossed',
+        auto_applied: changeData.autoApplied !== false
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error recording skill level change:', error);
+    throw error;
+  }
+}
+
+// Get player rankings by ELO
+async getPlayerRankingsByElo() {
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .select('*')
+      .order('elo_rating', { ascending: false });
+    
+    if (error) throw error;
+    
+    // Add ranking positions
+    return data.map((player, index) => ({
+      ...player,
+      rank: index + 1,
+      win_percentage: player.matches_played > 0 
+        ? Math.round((player.matches_won / player.matches_played) * 100) 
+        : 0
+    }));
+  } catch (error) {
+    console.error('Error getting player rankings:', error);
+    throw error;
+  }
+}
+
+// Get team rankings by ELO
+async getTeamRankingsByElo() {
+  try {
+    const { data, error } = await supabase
+      .from('teams')
+      .select(`
+        *,
+        team_players (
+          player_id,
+          players (
+            id,
+            name,
+            elo_rating
+          )
+        )
+      `)
+      .order('elo_rating', { ascending: false });
+    
+    if (error) throw error;
+    
+    // Calculate team average ELO and add rankings
+    return data.map((team, index) => {
+      const players = team.team_players?.map(tp => tp.players).filter(Boolean) || [];
+      const avgElo = players.length > 0 
+        ? Math.round(players.reduce((sum, p) => sum + (p.elo_rating || 1500), 0) / players.length)
+        : team.elo_rating || 1500;
+      
+      return {
+        ...team,
+        rank: index + 1,
+        avg_player_elo: avgElo,
+        win_percentage: team.matches_played > 0 
+          ? Math.round((team.matches_won / team.matches_played) * 100) 
+          : 0
+      };
+    });
+  } catch (error) {
+    console.error('Error getting team rankings:', error);
+    throw error;
+  }
+}
+
+// Update match with ELO processing
+async updateMatchWithElo(matchId, matchData, eloUpdates) {
+  try {
+    // Start transaction-like operations
+    console.log('Processing ELO updates for match:', matchId);
+    
+    // Update match first
+    const updatedMatch = await this.updateMatch(matchId, matchData);
+    
+    // Process ELO updates for each player
+    const historyRecords = [];
+    const skillLevelChanges = [];
+    
+    for (const update of eloUpdates) {
+      // Update player ELO rating
+      await this.updatePlayerEloRating(update.playerId, {
+        newRating: update.newRating,
+        oldPeakRating: update.oldPeakRating,
+        newSkillLevel: update.newSkillLevel,
+        oldGamesPlayed: update.oldGamesPlayed
+      });
+      
+      // Prepare history record
+      historyRecords.push({
+        player_id: update.playerId,
+        match_id: matchId,
+        old_rating: update.oldRating,
+        new_rating: update.newRating,
+        rating_change: update.ratingChange,
+        old_skill_level: update.oldSkillLevel,
+        new_skill_level: update.newSkillLevel,
+        opponent_avg_rating: update.opponentAvgRating,
+        k_factor: update.kFactor
+      });
+      
+      // Record skill level change if applicable
+      if (update.oldSkillLevel !== update.newSkillLevel) {
+        skillLevelChanges.push({
+          playerId: update.playerId,
+          oldSkillLevel: update.oldSkillLevel,
+          newSkillLevel: update.newSkillLevel,
+          eloRating: update.newRating,
+          autoApplied: true
+        });
+      }
+    }
+    
+    // Record all history
+    if (historyRecords.length > 0) {
+      await this.recordRatingHistory(historyRecords);
+    }
+    
+    // Record skill level changes
+    for (const change of skillLevelChanges) {
+      await this.recordSkillLevelChange(change);
+    }
+    
+    console.log('ELO processing completed successfully');
+    return updatedMatch;
+    
+  } catch (error) {
+    console.error('Error updating match with ELO:', error);
+    throw error;
+  }
+}
+
 
 }
 

@@ -30,6 +30,10 @@ const Header = () => {
                 <Icon size={18} />
                 <span>{label}</span>
               </Link>
+		<Link to="/elo-statistics" className="nav-link">
+		  <Award size={20} />
+		  <span>ELO Rankings</span>
+		</Link>
             ))}
           </nav>
         </div>
