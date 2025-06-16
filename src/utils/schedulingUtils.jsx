@@ -176,10 +176,10 @@ export class RoundRobinScheduler {
     const usedPlayers = new Set();
     
     for (let i = 0; i < players.length; i++) {
-      if (usedPlayers.has(players[i].id)) continue;
+        //if (usedPlayers.has(players[i].id)) continue;
       
       for (let j = i + 1; j < players.length; j++) {
-        if (usedPlayers.has(players[j].id)) continue;
+        //if (usedPlayers.has(players[j].id)) continue;
         
         pairs.push([players[i], players[j]]);
         usedPlayers.add(players[i].id);
