@@ -92,18 +92,19 @@ class SupabaseService {
     if (error) throw error;
   }
 
-// Enhanced Teams Query with Robust Error Handling
+// Enhanced Teams Query with Explicit Relationship Disambiguation
 async getTeams() {
   try {
-    console.log('🔍 Fetching teams with players...');
+    console.log('🔍 Fetching teams with players using explicit joins...');
     
+    // Use explicit relationship disambiguation to avoid ambiguity
     const { data, error } = await supabase
       .from('teams')
       .select(`
         *,
-        team_players (
+        team_players!team_players_team_id_fkey (
           player_id,
-          players (
+          players!team_players_player_id_fkey (
             id,
             name,
             skill_level,
@@ -125,22 +126,25 @@ async getTeams() {
 
     console.log('📄 Raw teams data from Supabase:', data);
 
-    // Enhanced data transformation with validation
+    // Enhanced data transformation with comprehensive validation
     const transformedTeams = (data || []).map(team => {
-      // Extract players from the junction table structure
-      const players = team.team_players?.map(tp => {
-        if (!tp.players) {
-          console.warn(`⚠️ Missing player data for team ${team.name}, player_id: ${tp.player_id}`);
-          return null;
-        }
-        return tp.players;
-      }).filter(Boolean) || [];
+      console.log(`🔍 Processing team: ${team.name}`);
+      console.log('Raw team_players data:', team.team_players);
       
-      // Validate team structure
-      if (players.length === 0) {
-        console.warn(`⚠️ Team ${team.name} has no associated players`);
-      } else if (players.length !== 2) {
-        console.warn(`⚠️ Team ${team.name} has ${players.length} players, expected 2`);
+      // Extract players from the junction table structure
+      const players = [];
+      
+      if (team.team_players && Array.isArray(team.team_players)) {
+        team.team_players.forEach(tp => {
+          if (tp.players && tp.players.id) {
+            players.push(tp.players);
+            console.log(`✅ Added player: ${tp.players.name} (${tp.players.id})`);
+          } else {
+            console.warn(`⚠️ Missing player data for team ${team.name}, team_player entry:`, tp);
+          }
+        });
+      } else {
+        console.warn(`⚠️ Team ${team.name} has no team_players array:`, team.team_players);
       }
       
       const transformedTeam = {
@@ -150,34 +154,35 @@ async getTeams() {
         isValid: players.length === 2 && players.every(p => p.id && p.name && p.skill_level)
       };
 
-      console.log(`🔍 Transformed team ${team.name}:`, {
-        id: transformedTeam.id,
-        name: transformedTeam.name,
+      console.log(`📊 Team ${team.name} transformation result:`, {
         playerCount: transformedTeam.playerCount,
         isValid: transformedTeam.isValid,
-        players: transformedTeam.players?.map(p => ({ id: p.id, name: p.name, skill: p.skill_level }))
+        playerNames: transformedTeam.players.map(p => p.name)
       });
 
       return transformedTeam;
     });
 
-    // Filter out invalid teams for scheduling
     const validTeams = transformedTeams.filter(team => team.isValid);
     const invalidTeams = transformedTeams.filter(team => !team.isValid);
 
     if (invalidTeams.length > 0) {
-      console.warn(`⚠️ Found ${invalidTeams.length} invalid teams:`, 
-        invalidTeams.map(t => `${t.name} (${t.playerCount} players)`));
+      console.error(`❌ Found ${invalidTeams.length} invalid teams:`, 
+        invalidTeams.map(t => ({
+          name: t.name,
+          playerCount: t.playerCount,
+          players: t.players?.map(p => p.name) || []
+        }))
+      );
     }
 
-    console.log(`✅ Loaded ${validTeams.length} valid teams, ${invalidTeams.length} invalid teams`);
+    console.log(`✅ Team loading summary: ${validTeams.length} valid, ${invalidTeams.length} invalid`);
     
-    // Return all teams but mark validity for debugging
     return transformedTeams;
     
   } catch (error) {
     console.error('💥 Error in getTeams:', error);
-    throw new Error(`Failed to load teams: ${error.message}`);
+    throw new Error(`Failed to load teams with players: ${error.message}`);
   }
 }
 	
