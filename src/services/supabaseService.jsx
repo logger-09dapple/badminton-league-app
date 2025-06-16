@@ -416,6 +416,7 @@ async addMatches(matchesData) {
       scheduled_date: match.scheduled_date || null,
       status: match.status || 'scheduled',
       match_type: match.match_type || 'same-skill', // NEW: Track match type
+      gender_category: match.gender_category || 'male' ,
       pairing_description: match.pairing_description || null, // NEW: Description
       skill_combination_1: match.skill_combination_1 || null, // NEW: Team 1 skill
       skill_combination_2: match.skill_combination_2 || null  // NEW: Team 2 skill
