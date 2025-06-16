@@ -602,7 +602,7 @@ const updateMatchWithEloProcessing = async (matchId, matchData) => {
     dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
     throw error;
   } finally {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false));
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false});
   }
 };
 
