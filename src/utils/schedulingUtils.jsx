@@ -197,15 +197,15 @@ export class RoundRobinScheduler {
     const usedFromGroup2 = new Set();
     
     for (let i = 0; i < players1.length; i++) {
-      if (usedFromGroup1.has(players1[i].id)) continue;
+      //if (usedFromGroup1.has(players1[i].id)) continue;
       
       for (let j = 0; j < players2.length; j++) {
-        if (usedFromGroup2.has(players2[j].id)) continue;
+        //if (usedFromGroup2.has(players2[j].id)) continue;
         
         pairs.push([players1[i], players2[j]]);
-        usedFromGroup1.add(players1[i].id);
-        usedFromGroup2.add(players2[j].id);
-        break;
+        //usedFromGroup1.add(players1[i].id);
+        //usedFromGroup2.add(players2[j].id);
+        //break;
       }
     }
     
