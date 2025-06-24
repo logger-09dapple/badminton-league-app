@@ -441,57 +441,92 @@ async addMatches(matchesData) {
   return data || [];
 }
 
-  // ENHANCED: Update match with automatic completion and statistics update
-  async updateMatch(id, matchData) {
-    const updateData = {
-      updated_at: new Date().toISOString()
-    };
+// FIXED: Regular match update with proper winner calculation
+async updateMatch(id, matchData) {
+  const updateData = {
+    updated_at: new Date().toISOString()
+  };
 
-    if (matchData.team1Id) updateData.team1_id = matchData.team1Id;
-    if (matchData.team2Id) updateData.team2_id = matchData.team2Id;
-    if (matchData.scheduledDate !== undefined) updateData.scheduled_date = matchData.scheduledDate; // FIXED: Use snake_case
-    if (matchData.status) updateData.status = matchData.status;
-    if (matchData.team1Score !== undefined) updateData.team1_score = matchData.team1Score;
-    if (matchData.team2Score !== undefined) updateData.team2_score = matchData.team2Score;
-    
-    // Auto-determine winner and complete match when scores are provided
-    if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
-      const winnerId = matchData.team1Score > matchData.team2Score ? matchData.team1Id : matchData.team2Id;
-      updateData.winner_team_id = winnerId;
-      updateData.status = 'completed';
-
-      // Update team statistics
-      await this.updateTeamStats(matchData.team1Id, matchData.team1Score > matchData.team2Score);
-      await this.updateTeamStats(matchData.team2Id, matchData.team2Score > matchData.team1Score);
-
-      // Update player statistics for team players
-      const team1Players = await this.getTeamPlayerIds(matchData.team1Id);
-      const team2Players = await this.getTeamPlayerIds(matchData.team2Id);
-
-      for (const playerId of team1Players) {
-        await this.updatePlayerStats(playerId, matchData.team1Score > matchData.team2Score);
-      }
-
-      for (const playerId of team2Players) {
-        await this.updatePlayerStats(playerId, matchData.team2Score > matchData.team1Score);
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('matches')
-      .update(updateData)
-      .eq('id', id)
-      .select(`
-        *,
-        team1:teams!matches_team1_id_fkey(*),
-        team2:teams!matches_team2_id_fkey(*),
-        winner_team:teams!matches_winner_team_id_fkey(*)
-      `)
-      .maybeSingle();
-    
-    if (error) throw error;
-    return data;
+  if (matchData.team1Id) updateData.team1_id = matchData.team1Id;
+  if (matchData.team2Id) updateData.team2_id = matchData.team2Id;
+  if (matchData.scheduledDate !== undefined) updateData.scheduled_date = matchData.scheduledDate;
+  if (matchData.status) updateData.status = matchData.status;
+  if (matchData.team1Score !== undefined) updateData.team1_score = matchData.team1Score;
+  if (matchData.team2Score !== undefined) updateData.team2_score = matchData.team2Score;
+  
+  // Determine winner if scores are provided
+  if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
+    updateData.winner_team_id = matchData.team1Score > matchData.team2Score ? matchData.team1Id : matchData.team2Id;
+    updateData.status = 'completed';
   }
+
+  const { data, error } = await supabase
+    .from('matches')
+    .update(updateData)
+    .eq('id', id)
+    .select(`
+      *,
+      team1:teams!matches_team1_id_fkey(*),
+      team2:teams!matches_team2_id_fkey(*),
+      winner_team:teams!matches_winner_team_id_fkey(*)
+    `)
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+//  // ENHANCED: Update match with automatic completion and statistics update
+//  async updateMatch(id, matchData) {
+//    const updateData = {
+//      updated_at: new Date().toISOString()
+//    };
+//
+//    if (matchData.team1Id) updateData.team1_id = matchData.team1Id;
+//    if (matchData.team2Id) updateData.team2_id = matchData.team2Id;
+//    if (matchData.scheduledDate !== undefined) updateData.scheduled_date = matchData.scheduledDate; // FIXED: Use snake_case
+//    if (matchData.status) updateData.status = matchData.status;
+//    if (matchData.team1Score !== undefined) updateData.team1_score = matchData.team1Score;
+//    if (matchData.team2Score !== undefined) updateData.team2_score = matchData.team2Score;
+//    
+//    // Auto-determine winner and complete match when scores are provided
+//    if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
+//      const winnerId = matchData.team1Score > matchData.team2Score ? matchData.team1Id : matchData.team2Id;
+//      updateData.winner_team_id = winnerId;
+//      updateData.status = 'completed';
+//
+//      // Update team statistics
+//      await this.updateTeamStats(matchData.team1Id, matchData.team1Score > matchData.team2Score);
+//      await this.updateTeamStats(matchData.team2Id, matchData.team2Score > matchData.team1Score);
+//
+//      // Update player statistics for team players
+//      const team1Players = await this.getTeamPlayerIds(matchData.team1Id);
+//      const team2Players = await this.getTeamPlayerIds(matchData.team2Id);
+//
+//      for (const playerId of team1Players) {
+//        await this.updatePlayerStats(playerId, matchData.team1Score > matchData.team2Score);
+//      }
+//
+//      for (const playerId of team2Players) {
+//        await this.updatePlayerStats(playerId, matchData.team2Score > matchData.team1Score);
+//      }
+//    }
+//
+//    const { data, error } = await supabase
+//      .from('matches')
+//      .update(updateData)
+//      .eq('id', id)
+//      .select(`
+//        *,
+//        team1:teams!matches_team1_id_fkey(*),
+//        team2:teams!matches_team2_id_fkey(*),
+//        winner_team:teams!matches_winner_team_id_fkey(*)
+//      `)
+//      .maybeSingle();
+//    
+//    if (error) throw error;
+//    return data;
+//  }
 
   // Helper function to get team player IDs
   async getTeamPlayerIds(teamId) {
@@ -702,29 +737,76 @@ async getTeamRankingsByElo() {
   }
 }
 
-// Update match with ELO processing
-async updateMatchWithElo(matchId, matchData, eloUpdates) {
+// FIXED: Update match with ELO processing and duplicate stat prevention
+async updateMatchWithElo(matchId, matchData, eloUpdates, wasAlreadyCompleted = false) {
   try {
-    // Start transaction-like operations
-    console.log('Processing ELO updates for match:', matchId);
-    
-    // Update match first
-    const updatedMatch = await this.updateMatch(matchId, matchData);
-    
-    // Process ELO updates for each player
+    console.log('Processing match update with ELO:', {
+      matchId,
+      wasAlreadyCompleted,
+      eloUpdatesCount: eloUpdates.length
+    });
+
+    // Update match scores and status
+    const matchUpdateData = {
+      team1_score: matchData.team1Score,
+      team2_score: matchData.team2Score,
+      status: matchData.status || 'completed',
+      winner_team_id: matchData.winner_team_id,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: updatedMatch, error: matchError } = await supabase
+      .from('matches')
+      .update(matchUpdateData)
+      .eq('id', matchId)
+      .select(`
+        *,
+        team1:teams!matches_team1_id_fkey(*),
+        team2:teams!matches_team2_id_fkey(*),
+        winner_team:teams!matches_winner_team_id_fkey(*)
+      `)
+      .single();
+
+    if (matchError) throw matchError;
+
+    // Process ELO updates for players
     const historyRecords = [];
     const skillLevelChanges = [];
     
     for (const update of eloUpdates) {
-      // Update player ELO rating
-      await this.updatePlayerEloRating(update.playerId, {
-        newRating: update.newRating,
-        oldPeakRating: update.oldPeakRating,
-        newSkillLevel: update.newSkillLevel,
-        oldGamesPlayed: update.oldGamesPlayed
-      });
-      
-      // Prepare history record
+      // Always update ELO ratings (ELO should update even for score corrections)
+      const { error: playerError } = await supabase
+        .from('players')
+        .update({
+          elo_rating: update.newRating,
+          peak_elo_rating: Math.max(update.newRating, update.oldPeakRating || update.oldRating),
+          skill_level: update.newSkillLevel,
+          // CRITICAL: Only increment games played if match wasn't already completed
+          elo_games_played: wasAlreadyCompleted 
+            ? update.oldGamesPlayed || 0  // Keep existing count
+            : (update.oldGamesPlayed || 0) + 1, // Increment only for new completions
+          // CRITICAL: Only update match stats if this is a new completion
+          matches_played: wasAlreadyCompleted 
+            ? undefined  // Don't update if already completed
+            : supabase.raw('matches_played + 1'),
+          matches_won: wasAlreadyCompleted 
+            ? undefined  // Don't update if already completed  
+            : (update.newSkillLevel !== update.oldSkillLevel || update.ratingChange > 0)
+              ? supabase.raw('matches_won + 1') 
+              : supabase.raw('matches_won'),
+          points: wasAlreadyCompleted
+            ? undefined  // Don't update if already completed
+            : supabase.raw('points + 1'),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', update.playerId);
+
+      if (playerError) {
+        console.error('Error updating player:', update.playerId, playerError);
+        throw playerError;
+      }
+
+      // Record ELO history
       historyRecords.push({
         player_id: update.playerId,
         match_id: matchId,
@@ -736,37 +818,78 @@ async updateMatchWithElo(matchId, matchData, eloUpdates) {
         opponent_avg_rating: update.opponentAvgRating,
         k_factor: update.kFactor
       });
-      
-      // Record skill level change if applicable
+
+      // Track skill level changes
       if (update.oldSkillLevel !== update.newSkillLevel) {
         skillLevelChanges.push({
-          playerId: update.playerId,
-          oldSkillLevel: update.oldSkillLevel,
-          newSkillLevel: update.newSkillLevel,
-          eloRating: update.newRating,
-          autoApplied: true
+          player_id: update.playerId,
+          old_skill_level: update.oldSkillLevel,
+          new_skill_level: update.newSkillLevel,
+          elo_rating: update.newRating,
+          reason: wasAlreadyCompleted ? 'Score correction ELO update' : 'Match completion ELO update',
+          auto_applied: true
         });
       }
     }
-    
-    // Record all history
+
+    // Record all ELO history
     if (historyRecords.length > 0) {
-      await this.recordRatingHistory(historyRecords);
+      const { error: historyError } = await supabase
+        .from('player_rating_history')
+        .insert(historyRecords);
+      
+      if (historyError) {
+        console.error('Error recording rating history:', historyError);
+      }
     }
-    
+
     // Record skill level changes
-    for (const change of skillLevelChanges) {
-      await this.recordSkillLevelChange(change);
+    if (skillLevelChanges.length > 0) {
+      const { error: skillError } = await supabase
+        .from('skill_level_changes')
+        .insert(skillLevelChanges);
+      
+      if (skillError) {
+        console.error('Error recording skill changes:', skillError);
+      }
     }
-    
+
+    // Update team statistics (only if match wasn't already completed)
+    if (!wasAlreadyCompleted && updatedMatch.winner_team_id) {
+      // Update winning team
+      await supabase
+        .from('teams')
+        .update({
+          matches_played: supabase.raw('matches_played + 1'),
+          matches_won: supabase.raw('matches_won + 1'),
+          points: supabase.raw('points + 1'),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', updatedMatch.winner_team_id);
+
+      // Update losing team
+      const losingTeamId = updatedMatch.winner_team_id === updatedMatch.team1_id 
+        ? updatedMatch.team2_id 
+        : updatedMatch.team1_id;
+
+      await supabase
+        .from('teams')
+        .update({
+          matches_played: supabase.raw('matches_played + 1'),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', losingTeamId);
+    }
+
     console.log('ELO processing completed successfully');
     return updatedMatch;
     
   } catch (error) {
-    console.error('Error updating match with ELO:', error);
+    console.error('Error in updateMatchWithElo:', error);
     throw error;
   }
 }
+
 
 
 }
