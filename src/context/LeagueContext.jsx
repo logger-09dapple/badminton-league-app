@@ -333,43 +333,110 @@ export function LeagueProvider({ children }) {
     }
   };
 
-// FIXED: Enhanced match update with proper ELO integration
+// FIXED: Enhanced match update with proper player data fetching
 const updateMatch = async (matchId, matchData) => {
   try {
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
     
-    // Get current match to check completion status
-    const currentMatch = state.matches.find(m => m.id === matchId);
-    if (!currentMatch) {
-      throw new Error('Match not found');
-    }
+    // Get current match with complete team and player data
+    const { data: fullMatch, error: matchFetchError } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        team1:teams!matches_team1_id_fkey(
+          *,
+          team_players(
+            player_id,
+            players(
+              id,
+              name,
+              skill_level,
+              gender,
+              elo_rating,
+              elo_games_played,
+              peak_elo_rating,
+              matches_played,
+              matches_won,
+              points
+            )
+          )
+        ),
+        team2:teams!matches_team2_id_fkey(
+          *,
+          team_players(
+            player_id,
+            players(
+              id,
+              name,
+              skill_level,
+              gender,
+              elo_rating,
+              elo_games_played,
+              peak_elo_rating,
+              matches_played,
+              matches_won,
+              points
+            )
+          )
+        )
+      `)
+      .eq('id', matchId)
+      .single();
 
-    // Check if this is a score update (has team1Score and team2Score)
+    if (matchFetchError) throw matchFetchError;
+    if (!fullMatch) throw new Error('Match not found');
+
+    // Check if this is a score update
     const isScoreUpdate = matchData.team1Score !== undefined && matchData.team2Score !== undefined;
-    
-    // Check if match was already completed
-    const wasAlreadyCompleted = currentMatch.status === 'completed';
+    const wasAlreadyCompleted = fullMatch.status === 'completed';
+
+    console.log('Match data for ELO processing:', {
+      matchId,
+      isScoreUpdate,
+      wasAlreadyCompleted,
+      team1Players: fullMatch.team1?.team_players?.length || 0,
+      team2Players: fullMatch.team2?.team_players?.length || 0
+    });
 
     if (isScoreUpdate) {
-      // Get team players for ELO calculation
-      const team1Players = currentMatch.team1?.team_players?.map(tp => ({
-        ...tp.players,
-        elo_rating: tp.players.elo_rating || 1500,
-        elo_games_played: tp.players.elo_games_played || 0,
-        peak_elo_rating: tp.players.peak_elo_rating || tp.players.elo_rating || 1500
-      })) || [];
+      // Extract and validate player data
+      const team1Players = fullMatch.team1?.team_players?.map(tp => {
+        const player = tp.players;
+        if (!player || !player.id) {
+          console.error('Invalid team1 player data:', tp);
+          return null;
+        }
+        return {
+          ...player,
+          elo_rating: player.elo_rating || 1500,
+          elo_games_played: player.elo_games_played || 0,
+          peak_elo_rating: player.peak_elo_rating || player.elo_rating || 1500,
+          matches_played: player.matches_played || 0,
+          matches_won: player.matches_won || 0,
+          points: player.points || 0
+        };
+      }).filter(Boolean) || [];
       
-      const team2Players = currentMatch.team2?.team_players?.map(tp => ({
-        ...tp.players,
-        elo_rating: tp.players.elo_rating || 1500,
-        elo_games_played: tp.players.elo_games_played || 0,
-        peak_elo_rating: tp.players.peak_elo_rating || tp.players.elo_rating || 1500
-      })) || [];
+      const team2Players = fullMatch.team2?.team_players?.map(tp => {
+        const player = tp.players;
+        if (!player || !player.id) {
+          console.error('Invalid team2 player data:', tp);
+          return null;
+        }
+        return {
+          ...player,
+          elo_rating: player.elo_rating || 1500,
+          elo_games_played: player.elo_games_played || 0,
+          peak_elo_rating: player.peak_elo_rating || player.elo_rating || 1500,
+          matches_played: player.matches_played || 0,
+          matches_won: player.matches_won || 0,
+          points: player.points || 0
+        };
+      }).filter(Boolean) || [];
 
-      console.log('Processing ELO for match:', matchId, {
-        team1Players: team1Players.length,
-        team2Players: team2Players.length,
-        wasAlreadyCompleted
+      console.log('Processed player data:', {
+        team1Players: team1Players.map(p => ({ id: p.id, name: p.name, elo: p.elo_rating })),
+        team2Players: team2Players.map(p => ({ id: p.id, name: p.name, elo: p.elo_rating }))
       });
 
       if (team1Players.length === 2 && team2Players.length === 2) {
@@ -383,13 +450,13 @@ const updateMatch = async (matchId, matchData) => {
 
         console.log('ELO updates calculated:', eloUpdates);
 
-        // Enhanced match data with completion status
+        // Enhanced match data
         const enhancedMatchData = {
           ...matchData,
           status: 'completed',
-          winner_team_id: matchData.team1Score > matchData.team2Score ? currentMatch.team1_id : currentMatch.team2_id,
-          // IMPORTANT: Only update player stats if match wasn't already completed
-          updatePlayerStats: !wasAlreadyCompleted
+          winner_team_id: matchData.team1Score > matchData.team2Score ? fullMatch.team1_id : fullMatch.team2_id,
+          team1Id: fullMatch.team1_id,
+          team2Id: fullMatch.team2_id
         };
 
         // Update match with ELO processing
@@ -397,10 +464,8 @@ const updateMatch = async (matchId, matchData) => {
           matchId, 
           enhancedMatchData, 
           eloUpdates,
-          wasAlreadyCompleted // Pass completion status
+          wasAlreadyCompleted
         );
-
-        console.log('Match updated with ELO:', updatedMatch);
 
         // Update local state
         dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
@@ -410,10 +475,11 @@ const updateMatch = async (matchId, matchData) => {
         
         return updatedMatch;
       } else {
-        console.warn('Incomplete player data, using regular update');
-        const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
-        dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
-        return updatedMatch;
+        console.error('Invalid player count:', {
+          team1Count: team1Players.length,
+          team2Count: team2Players.length
+        });
+        throw new Error(`Invalid player data: Team1 has ${team1Players.length} players, Team2 has ${team2Players.length} players. Expected 2 each.`);
       }
     } else {
       // Regular match update without scores
@@ -430,6 +496,105 @@ const updateMatch = async (matchId, matchData) => {
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
   }
 };
+
+
+//// FIXED: Enhanced match update with proper ELO integration
+//const updateMatch = async (matchId, matchData) => {
+//  try {
+//    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+//    
+//    // Get current match to check completion status
+//    const currentMatch = state.matches.find(m => m.id === matchId);
+//    if (!currentMatch) {
+//      throw new Error('Match not found');
+//    }
+//
+//    // Check if this is a score update (has team1Score and team2Score)
+//    const isScoreUpdate = matchData.team1Score !== undefined && matchData.team2Score !== undefined;
+//    
+//    // Check if match was already completed
+//    const wasAlreadyCompleted = currentMatch.status === 'completed';
+//
+//    if (isScoreUpdate) {
+//      // Get team players for ELO calculation
+//      const team1Players = currentMatch.team1?.team_players?.map(tp => ({
+//        ...tp.players,
+//        elo_rating: tp.players.elo_rating || 1500,
+//        elo_games_played: tp.players.elo_games_played || 0,
+//        peak_elo_rating: tp.players.peak_elo_rating || tp.players.elo_rating || 1500
+//      })) || [];
+//      
+//      const team2Players = currentMatch.team2?.team_players?.map(tp => ({
+//        ...tp.players,
+//        elo_rating: tp.players.elo_rating || 1500,
+//        elo_games_played: tp.players.elo_games_played || 0,
+//        peak_elo_rating: tp.players.peak_elo_rating || tp.players.elo_rating || 1500
+//      })) || [];
+//
+//      console.log('Processing ELO for match:', matchId, {
+//        team1Players: team1Players.length,
+//        team2Players: team2Players.length,
+//        wasAlreadyCompleted
+//      });
+//
+//      if (team1Players.length === 2 && team2Players.length === 2) {
+//        // Calculate ELO updates
+//        const eloUpdates = badmintonEloSystem.processMatchResult(
+//          team1Players,
+//          team2Players,
+//          matchData.team1Score,
+//          matchData.team2Score
+//        );
+//
+//        console.log('ELO updates calculated:', eloUpdates);
+//
+//        // Enhanced match data with completion status
+//        const enhancedMatchData = {
+//          ...matchData,
+//          status: 'completed',
+//          winner_team_id: matchData.team1Score > matchData.team2Score ? currentMatch.team1_id : currentMatch.team2_id,
+//          // IMPORTANT: Only update player stats if match wasn't already completed
+//          updatePlayerStats: !wasAlreadyCompleted
+//        };
+//
+//        // Update match with ELO processing
+//        const updatedMatch = await supabaseService.updateMatchWithElo(
+//          matchId, 
+//          enhancedMatchData, 
+//          eloUpdates,
+//          wasAlreadyCompleted // Pass completion status
+//        );
+//
+//        console.log('Match updated with ELO:', updatedMatch);
+//
+//        // Update local state
+//        dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+//        
+//        // Reload data to reflect changes
+//        await loadInitialData();
+//        
+//        return updatedMatch;
+//      } else {
+//        console.warn('Incomplete player data, using regular update');
+//        const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
+//        dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+//        return updatedMatch;
+//      }
+//    } else {
+//      // Regular match update without scores
+//      const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
+//      dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+//      return updatedMatch;
+//    }
+//    
+//  } catch (error) {
+//    console.error('Match update error:', error);
+//    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+//    throw error;
+//  } finally {
+//    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+//  }
+//};
 
 
 //  // ENHANCED: Update match with auto-completion logic

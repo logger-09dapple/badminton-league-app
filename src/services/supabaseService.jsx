@@ -743,9 +743,24 @@ async updateMatchWithElo(matchId, matchData, eloUpdates, wasAlreadyCompleted = f
     console.log('Processing match update with ELO:', {
       matchId,
       wasAlreadyCompleted,
-      eloUpdatesCount: eloUpdates.length
+      eloUpdatesCount: eloUpdates?.length || 0,
+      eloUpdates: eloUpdates?.map(u => ({ playerId: u.playerId, oldRating: u.oldRating, newRating: u.newRating }))
     });
 
+    // Validate ELO updates array
+    if (!Array.isArray(eloUpdates) || eloUpdates.length === 0) {
+      console.warn('No ELO updates provided, performing regular match update');
+      return await this.updateMatch(matchId, matchData);
+    }
+
+    // Validate each ELO update has required properties
+    for (const update of eloUpdates) {
+      if (!update.playerId || update.oldRating === undefined || update.newRating === undefined) {
+        console.error('Invalid ELO update:', update);
+        throw new Error(`Invalid ELO update for player ${update.playerId || 'unknown'}`);
+      }
+    }
+	  
     // Update match scores and status first
     const matchUpdateData = {
       team1_score: matchData.team1Score,

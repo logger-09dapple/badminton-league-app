@@ -59,70 +59,121 @@ export class BadmintonEloSystem {
     }
   }
 
-  // Process match results for all players in doubles match [20]
-  processMatchResult(team1Players, team2Players, team1Score, team2Score) {
-    try {
-      const updates = [];
-      const team1Result = team1Score > team2Score ? 1 : 0;
-      const team2Result = 1 - team1Result;
+// Enhanced processMatchResult with validation
+processMatchResult(team1Players, team2Players, team1Score, team2Score) {
+  try {
+    console.log('Processing match result with players:', {
+      team1Count: team1Players?.length || 0,
+      team2Count: team2Players?.length || 0,
+      team1Players: team1Players?.map(p => ({ id: p?.id, name: p?.name, elo: p?.elo_rating })),
+      team2Players: team2Players?.map(p => ({ id: p?.id, name: p?.name, elo: p?.elo_rating }))
+    });
 
-      // Calculate average team ratings for opponent strength assessment [20]
-      const team1AvgRating = this.calculateTeamAverageRating(team1Players);
-      const team2AvgRating = this.calculateTeamAverageRating(team2Players);
-
-      // Process each player in team 1
-      team1Players.forEach(player => {
-        const kFactor = this.calculateAdjustedKFactor(player);
-        const result = this.calculateNewRating(
-          player.elo_rating || this.initialRating, 
-          team2AvgRating, 
-          team1Result, 
-          kFactor
-        );
-        
-        updates.push({
-          playerId: player.id,
-          oldRating: player.elo_rating || this.initialRating,
-          newRating: result.newRating,
-          ratingChange: result.ratingChange,
-          oldSkillLevel: player.skill_level,
-          newSkillLevel: this.determineSkillLevel(result.newRating),
-          opponentAvgRating: team2AvgRating,
-          kFactor: kFactor,
-          expectedScore: result.expectedScore
-        });
-      });
-
-      // Process each player in team 2
-      team2Players.forEach(player => {
-        const kFactor = this.calculateAdjustedKFactor(player);
-        const result = this.calculateNewRating(
-          player.elo_rating || this.initialRating, 
-          team1AvgRating, 
-          team2Result, 
-          kFactor
-        );
-        
-        updates.push({
-          playerId: player.id,
-          oldRating: player.elo_rating || this.initialRating,
-          newRating: result.newRating,
-          ratingChange: result.ratingChange,
-          oldSkillLevel: player.skill_level,
-          newSkillLevel: this.determineSkillLevel(result.newRating),
-          opponentAvgRating: team1AvgRating,
-          kFactor: kFactor,
-          expectedScore: result.expectedScore
-        });
-      });
-
-      return updates;
-    } catch (error) {
-      console.error('Error processing match result:', error);
-      return [];
+    // Validate input parameters
+    if (!Array.isArray(team1Players) || !Array.isArray(team2Players)) {
+      throw new Error('Player arrays are invalid');
     }
-  }
 
+    if (team1Players.length !== 2 || team2Players.length !== 2) {
+      throw new Error(`Invalid team sizes: Team1 has ${team1Players.length}, Team2 has ${team2Players.length}. Expected 2 each.`);
+    }
+
+    // Validate each player has required properties
+    const validatePlayer = (player, teamName, index) => {
+      if (!player) {
+        throw new Error(`${teamName} player ${index + 1} is null/undefined`);
+      }
+      if (!player.id) {
+        throw new Error(`${teamName} player ${index + 1} missing ID`);
+      }
+      if (!player.name) {
+        throw new Error(`${teamName} player ${index + 1} missing name`);
+      }
+      // Ensure ELO properties exist
+      player.elo_rating = player.elo_rating || this.initialRating;
+      player.elo_games_played = player.elo_games_played || 0;
+      player.peak_elo_rating = player.peak_elo_rating || player.elo_rating;
+      
+      return player;
+    };
+
+    // Validate and normalize all players
+    const validatedTeam1 = team1Players.map((player, index) => 
+      validatePlayer(player, 'Team1', index)
+    );
+    
+    const validatedTeam2 = team2Players.map((player, index) => 
+      validatePlayer(player, 'Team2', index)
+    );
+
+    const updates = [];
+    const team1Result = team1Score > team2Score ? 1 : 0;
+    const team2Result = 1 - team1Result;
+
+    // Calculate average team ratings
+    const team1AvgRating = this.calculateTeamAverageRating(validatedTeam1);
+    const team2AvgRating = this.calculateTeamAverageRating(validatedTeam2);
+
+    console.log('Team average ratings:', { team1AvgRating, team2AvgRating });
+
+    // Process each player in team 1
+    validatedTeam1.forEach(player => {
+      const kFactor = this.calculateAdjustedKFactor(player);
+      const result = this.calculateNewRating(
+        player.elo_rating, 
+        team2AvgRating, 
+        team1Result, 
+        kFactor
+      );
+      
+      updates.push({
+        playerId: player.id,
+        oldRating: player.elo_rating,
+        newRating: result.newRating,
+        ratingChange: result.ratingChange,
+        oldSkillLevel: player.skill_level,
+        newSkillLevel: this.determineSkillLevel(result.newRating),
+        opponentAvgRating: team2AvgRating,
+        kFactor: kFactor,
+        expectedScore: result.expectedScore,
+        oldPeakRating: player.peak_elo_rating,
+        oldGamesPlayed: player.elo_games_played
+      });
+    });
+
+    // Process each player in team 2
+    validatedTeam2.forEach(player => {
+      const kFactor = this.calculateAdjustedKFactor(player);
+      const result = this.calculateNewRating(
+        player.elo_rating, 
+        team1AvgRating, 
+        team2Result, 
+        kFactor
+      );
+      
+      updates.push({
+        playerId: player.id,
+        oldRating: player.elo_rating,
+        newRating: result.newRating,
+        ratingChange: result.ratingChange,
+        oldSkillLevel: player.skill_level,
+        newSkillLevel: this.determineSkillLevel(result.newRating),
+        opponentAvgRating: team1AvgRating,
+        kFactor: kFactor,
+        expectedScore: result.expectedScore,
+        oldPeakRating: player.peak_elo_rating,
+        oldGamesPlayed: player.elo_games_played
+      });
+    });
+
+    console.log('Generated ELO updates:', updates);
+    return updates;
+  } catch (error) {
+    console.error('Error processing match result:', error);
+    return [];
+  }
+}
+	
   // Calculate team average rating for doubles [20]
   calculateTeamAverageRating(players) {
     if (!players || players.length === 0) return this.initialRating;
