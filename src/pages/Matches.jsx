@@ -388,6 +388,7 @@ const getSelectedPlayerNames = () => {
         >
           <MatchForm
             teams={teams}
+            players={players}  // ADD THIS LINE - Make sure players is passed	  
             onSubmit={handleMatchSubmit}
             onCancel={() => setIsMatchModalOpen(false)}
           />
