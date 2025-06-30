@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Users, UserPlus, Calendar, BarChart3, Home, Award, Menu, X } from 'lucide-react';
 
 const Header = () => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const toggleButtonRef = useRef(null);
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
@@ -18,6 +20,64 @@ const Header = () => {
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
+  
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (mobileMenuOpen && 
+          menuRef.current && 
+          !menuRef.current.contains(event.target) &&
+          toggleButtonRef.current && 
+          !toggleButtonRef.current.contains(event.target)) {
+        setMobileMenuOpen(false);
+      }
+    }
+    
+    // Add event listener
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    
+    return () => {
+      // Remove event listener on cleanup
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [mobileMenuOpen]);
+
+  // Close menu when route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  // Add/remove body class to prevent scrolling when menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.classList.add('mobile-menu-open');
+    } else {
+      document.body.classList.remove('mobile-menu-open');
+    }
+
+    // Cleanup when component unmounts
+    return () => {
+      document.body.classList.remove('mobile-menu-open');
+    };
+  }, [mobileMenuOpen]);
+
+  // Ensure menu stays within viewport on small screens
+  useEffect(() => {
+    if (mobileMenuOpen && menuRef.current) {
+      // Check if menu height exceeds viewport
+      const menuHeight = menuRef.current.scrollHeight;
+      const viewportHeight = window.innerHeight;
+      const menuTop = menuRef.current.getBoundingClientRect().top;
+
+      if (menuTop + menuHeight > viewportHeight) {
+        // If menu would go beyond viewport, adjust its max-height
+        const availableSpace = viewportHeight - menuTop - 10; // 10px buffer
+        menuRef.current.style.maxHeight = `${availableSpace}px`;
+      }
+    }
+  }, [mobileMenuOpen]);
 
   return (
     <header className="header">
@@ -29,9 +89,11 @@ const Header = () => {
           
           {/* Mobile menu toggle */}
           <button 
+            ref={toggleButtonRef}
             className="mobile-menu-toggle" 
             onClick={toggleMobileMenu}
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -51,7 +113,11 @@ const Header = () => {
           </nav>
           
           {/* Mobile navigation */}
-          <nav className={`nav mobile-nav ${mobileMenuOpen ? 'open' : ''}`}>
+          <nav 
+            ref={menuRef}
+            className={`nav mobile-nav ${mobileMenuOpen ? 'open' : ''}`}
+            aria-hidden={!mobileMenuOpen}
+          >
             {navItems.map(({ path, label, icon: Icon }) => (
               <Link
                 key={path}
