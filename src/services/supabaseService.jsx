@@ -549,6 +549,170 @@ async updateMatch(id, matchData) {
     if (error) throw error;
   }
 
+  // NEW: Delete individual match with optional ELO rating reversal
+  async deleteMatch(matchId, reverseEloRatings = false) {
+    try {
+      console.log(`Deleting match ${matchId}, reverseEloRatings: ${reverseEloRatings}`);
+
+      if (reverseEloRatings) {
+        // Fetch match details to reverse ELO changes
+        const { data: match, error: matchError } = await supabase
+          .from('matches')
+      .select(`
+            *,
+            team1:teams!matches_team1_id_fkey(
+              id, name,
+              team_players (
+          player_id,
+                players (id, name, elo_rating)
+              )
+            ),
+            team2:teams!matches_team2_id_fkey(
+              id, name,
+              team_players (
+                player_id,
+                players (id, name, elo_rating)
+          )
+        )
+      `)
+      .eq('id', matchId)
+      .single();
+
+        if (matchError) {
+          console.error('Error fetching match for deletion:', matchError);
+          throw matchError;
+        }
+
+        if (!match) {
+          throw new Error('Match not found');
+        }
+
+        console.log('Fetched match for ELO reversal:', match);
+
+        // Get player rating history for this match
+        const { data: ratingHistory, error: ratingError } = await supabase
+      .from('player_rating_history')
+          .select('*')
+          .eq('match_id', matchId);
+
+        if (ratingError) {
+          console.error('Error fetching rating history:', ratingError);
+          throw ratingError;
+    }
+
+        // Reverse ELO changes for all players involved
+        if (ratingHistory && ratingHistory.length > 0) {
+          console.log('Found rating history to reverse:', ratingHistory.length, 'records');
+
+          // Process each player's rating change
+          for (const record of ratingHistory) {
+            // Reverse the rating change
+            await this.reversePlayerRating(record);
+  }
+
+          console.log('Successfully reversed all player ratings');
+}
+
+        // Update team stats
+        if (match.winner_team_id) {
+          // Update winner team (decrement wins)
+          await this.updateTeamStatsForMatchDeletion(match.winner_team_id, true);
+
+          // Update loser team
+          const loserTeamId = match.winner_team_id === match.team1_id ? match.team2_id : match.team1_id;
+          await this.updateTeamStatsForMatchDeletion(loserTeamId, false);
+        }
+      }
+
+      // Finally delete the match
+      const { error } = await supabase
+        .from('matches')
+        .delete()
+        .eq('id', matchId);
+
+      if (error) {
+        console.error('Error deleting match:', error);
+    throw error;
+  }
+
+      console.log('Match deleted successfully');
+      return true;
+    } catch (error) {
+      console.error('Error in deleteMatch:', error);
+      throw error;
+}
+}
+
+  // Helper method for reversing player ELO ratings
+  async reversePlayerRating(ratingRecord) {
+    try {
+      console.log(`Reversing rating for player ${ratingRecord.player_id}: ${ratingRecord.new_rating} -> ${ratingRecord.old_rating}`);
+
+      const { error } = await supabase
+        .from('players')
+        .update({
+          elo_rating: ratingRecord.old_rating,
+          elo_games_played: supabase.raw('elo_games_played - 1'),
+          matches_played: supabase.raw('matches_played - 1'),
+          matches_won: ratingRecord.rating_change > 0 ? supabase.raw('matches_won - 1') : supabase.raw('matches_won'),
+          points: ratingRecord.rating_change > 0 ? supabase.raw('points - 1') : supabase.raw('points'),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', ratingRecord.player_id);
+
+      if (error) {
+        console.error('Error reversing player rating:', error);
+        throw error;
+      }
+
+      // Delete the rating history record
+      await supabase
+        .from('player_rating_history')
+        .delete()
+        .eq('id', ratingRecord.id);
+
+      return true;
+    } catch (error) {
+      console.error('Error in reversePlayerRating:', error);
+      throw error;
+    }
+  }
+
+  // Helper method for updating team stats when a match is deleted
+  async updateTeamStatsForMatchDeletion(teamId, wasWinner) {
+    try {
+      const { data: team, error: fetchError } = await supabase
+        .from('teams')
+        .select('matches_played, matches_won, points')
+        .eq('id', teamId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Ensure we don't go below 0 for any statistic
+      const newMatches = Math.max(0, (team.matches_played || 0) - 1);
+      const newWins = wasWinner ? Math.max(0, (team.matches_won || 0) - 1) : (team.matches_won || 0);
+      const newPoints = wasWinner ? Math.max(0, (team.points || 0) - 1) : (team.points || 0);
+
+      const { error } = await supabase
+        .from('teams')
+        .update({
+          matches_played: newMatches,
+          matches_won: newWins,
+          points: newPoints,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', teamId);
+
+      if (error) throw error;
+
+      return true;
+    } catch (error) {
+      console.error('Error updating team stats for match deletion:', error);
+      throw error;
+    }
+  }
+
 // Add this method to your SupabaseService class
 async validateTeamPlayerIntegrity() {
   console.log('🔍 Checking team-player relationship integrity...');
@@ -685,8 +849,8 @@ async getPlayerRankingsByElo() {
     return data.map((player, index) => ({
       ...player,
       rank: index + 1,
-      win_percentage: player.matches_played > 0 
-        ? Math.round((player.matches_won / player.matches_played) * 100) 
+      win_percentage: player.matches_played > 0
+        ? Math.round((player.matches_won / player.matches_played) * 100)
         : 0
     }));
   } catch (error) {
@@ -726,8 +890,8 @@ async getTeamRankingsByElo() {
         ...team,
         rank: index + 1,
         avg_player_elo: avgElo,
-        win_percentage: team.matches_played > 0 
-          ? Math.round((team.matches_won / team.matches_played) * 100) 
+        win_percentage: team.matches_played > 0
+          ? Math.round((team.matches_won / team.matches_played) * 100)
           : 0
       };
     });
@@ -978,8 +1142,8 @@ async updateTeamStatistics(updatedMatch) {
       .eq('id', updatedMatch.winner_team_id);
 
     // Update losing team
-    const losingTeamId = updatedMatch.winner_team_id === updatedMatch.team1_id 
-      ? updatedMatch.team2_id 
+    const losingTeamId = updatedMatch.winner_team_id === updatedMatch.team1_id
+      ? updatedMatch.team2_id
       : updatedMatch.team1_id;
 
     const { data: losingTeam, error: loseTeamError } = await supabase
@@ -1003,9 +1167,6 @@ async updateTeamStatistics(updatedMatch) {
     throw error;
   }
 }
-
-
 }
 
 export const supabaseService = new SupabaseService();
-

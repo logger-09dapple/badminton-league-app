@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLeague } from '../context/LeagueContext';
 import MatchForm from '../components/MatchForm';
 import ScoreUpdateForm from '../components/ScoreUpdateForm';
 import AdminAuth from '../utils/adminAuth';
 import Modal from '../components/Modal';
-import { Plus, Calendar, Trophy, Trash2, Filter, X } from 'lucide-react';
+import { Plus, Calendar, Trophy, Trash2, Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import ProtectedAdminButton from '../components/ProtectedAdminButton';
+import { scrollToElement } from '../utils/scrollHelper';
+import '../styles/MatchesPage.css'; // Import the new CSS file
 
 const Matches = () => {
   const { 
@@ -16,7 +18,8 @@ const Matches = () => {
     error, 
     addMatch, 
     updateMatch,
-    deleteAllMatches // Add this to context
+    deleteAllMatches, // Add this to context
+    deleteMatch // We'll implement this in the context
   } = useLeague();
 
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
@@ -25,38 +28,48 @@ const Matches = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedPlayers, setSelectedPlayers] = useState(new Set());
   const [filteredMatches, setFilteredMatches] = useState([]);
+  const [showCompletedMatches, setShowCompletedMatches] = useState(true);
+  const [showUnplayedMatches, setShowUnplayedMatches] = useState(true);
 
-//  // Filter matches based on selected players
-//  useEffect(() => {
-//    if (selectedPlayers.size === 0) {
-//      setFilteredMatches(matches);
-//    } else {
-//      const filtered = matches.filter(match => {
-//        // Get all player IDs for both teams in this match
-//        const team1PlayerIds = match.team1?.team_players?.map(tp => tp.player_id) || [];
-//        const team2PlayerIds = match.team2?.team_players?.map(tp => tp.player_id) || [];
-//        const allMatchPlayerIds = [...team1PlayerIds, ...team2PlayerIds];
-//        
-//        // Check if any of the selected players are in this match
-//        return Array.from(selectedPlayers).some(playerId => 
-//          allMatchPlayerIds.includes(playerId)
-//        );
-//      });
-//      setFilteredMatches(filtered);
-//    }
-//  }, [matches, selectedPlayers]);
+  // Refs for the section content elements
+  const completedSectionRef = useRef(null);
+  const unplayedSectionRef = useRef(null);
 
-// Enhanced filter matches based on selected players (exclusive filtering)
-useEffect(() => {
-  if (selectedPlayers.size === 0) {
-    setFilteredMatches(matches);
-  } else {
-    const filtered = matches.filter(match => {
-      // Get all player IDs for both teams in this match
-      const team1PlayerIds = match.team1?.team_players?.map(tp => tp.player_id) || [];
-      const team2PlayerIds = match.team2?.team_players?.map(tp => tp.player_id) || [];
-      const allMatchPlayerIds = [...team1PlayerIds, ...team2PlayerIds];
-      
+  // Enhanced function to handle section toggle with better scrolling
+  const toggleSection = (section, isCurrentlyShown) => {
+    // First toggle the section visibility
+    if (section === 'completed') {
+      setShowCompletedMatches(!isCurrentlyShown);
+    } else {
+      setShowUnplayedMatches(!isCurrentlyShown);
+    }
+
+    // If we're opening a section (especially unplayed), ensure it's visible after expansion
+    if (isCurrentlyShown === true) return; // Only proceed if we're opening
+
+    // Use setTimeout to allow the DOM to update before scrolling
+        setTimeout(() => {
+      const ref = section === 'completed' ? completedSectionRef : unplayedSectionRef;
+      if (ref.current) {
+        // Use our enhanced scroll helper
+        scrollToElement(ref.current, {
+          block: 'start',
+          offset: -20
+        });
+      }
+    }, 50); // Short delay to ensure DOM is updated
+  };
+
+  // Filter matches based on selected players
+  useEffect(() => {
+    if (selectedPlayers.size === 0) {
+      setFilteredMatches(matches);
+    } else {
+      const filtered = matches.filter(match => {
+        // Get all player IDs for both teams in this match
+        const team1PlayerIds = match.team1?.team_players?.map(tp => tp.player_id) || [];
+        const team2PlayerIds = match.team2?.team_players?.map(tp => tp.player_id) || [];
+        const allMatchPlayerIds = [...team1PlayerIds, ...team2PlayerIds];
       // UPDATED: Check if ALL players in this match are in the selected players set
       // This ensures only matches between selected players are shown
       return allMatchPlayerIds.length > 0 && 
@@ -74,8 +87,8 @@ const getExclusiveMatchCount = () => {
     const team1PlayerIds = match.team1?.team_players?.map(tp => tp.player_id) || [];
     const team2PlayerIds = match.team2?.team_players?.map(tp => tp.player_id) || [];
     const allMatchPlayerIds = [...team1PlayerIds, ...team2PlayerIds];
-    
-    return allMatchPlayerIds.length > 0 && 
+
+    return allMatchPlayerIds.length > 0 &&
            allMatchPlayerIds.every(playerId => selectedPlayers.has(playerId));
   }).length;
 };
@@ -100,11 +113,18 @@ const getSelectedPlayerNames = () => {
 
   const handleMatchSubmit = async (matchData) => {
     try {
-      await addMatch(matchData);
+      console.log('Adding match with data:', matchData);
+      const newMatch = await addMatch(matchData);
+      console.log('Match added successfully:', newMatch);
       setIsMatchModalOpen(false);
+
+      // Show success message
+      alert(matchData.team1Score !== undefined ?
+        'Match created with scores successfully!' :
+        'Match created successfully!');
     } catch (error) {
       console.error('Error saving match:', error);
-      alert('Error saving match: ' + error.message);
+      alert('Error saving match: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -124,7 +144,7 @@ const getSelectedPlayerNames = () => {
     }
   };
 
-  // NEW: Handle delete all matches
+  // Handle delete all matches
   const handleDeleteAllMatches = async () => {
     AdminAuth.logAdminAction('Deleting all matches?');
     const confirmMessage = `Are you sure you want to delete ALL ${matches.length} matches? This action cannot be undone and will reset all statistics.`;
@@ -136,6 +156,26 @@ const getSelectedPlayerNames = () => {
       } catch (error) {
         console.error('Error deleting all matches:', error);
         alert('Error deleting all matches: ' + error.message);
+      }
+    }
+  };
+
+  // New: Handle delete individual match
+  const handleDeleteMatch = async (matchId) => {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    const confirmMessage = `Are you sure you want to delete this match between ${match.team1?.name} and ${match.team2?.name}? ${
+      match.status === 'completed' ? 'This will also revert player statistics and ELO ratings.' : ''
+    }`;
+
+    if (window.confirm(confirmMessage)) {
+      try {
+        await deleteMatch(matchId);
+        alert('Match has been deleted successfully.');
+      } catch (error) {
+        console.error('Error deleting match:', error);
+        alert('Error deleting match: ' + error.message);
       }
     }
   };
@@ -167,17 +207,24 @@ const getSelectedPlayerNames = () => {
     return player ? player.name : 'Unknown Player';
   };
 
-  // Format team display with player names
+  // Format team display with player names - with length limits for better layout
   const formatTeamDisplay = (team) => {
     if (!team) return 'Unknown Team';
-    
-    const playerNames = team.team_players?.map(tp => 
-      getPlayerName(tp.player_id)
-    ).join(' & ') || 'No Players';
-    
+
+    const playerNames = team.team_players?.map(tp => {
+      const playerName = getPlayerName(tp.player_id);
+      // Limit name length to prevent layout issues
+      return playerName.length > 15 ? playerName.substring(0, 15) + '...' : playerName;
+    }).join(' & ') || 'No Players';
+
+    // Also limit team name length
+    const teamName = team.name && team.name.length > 20
+      ? team.name.substring(0, 20) + '...'
+      : team.name || 'Unknown';
+
     return (
       <div className="team-display">
-        <div className="team-name">{team.name}</div>
+        <div className="team-name">{teamName}</div>
         <div className="player-names">{playerNames}</div>
       </div>
     );
@@ -196,8 +243,8 @@ const getSelectedPlayerNames = () => {
         <div className="page-header">
           <h1>Matches</h1>
           <div className="header-actions">
-            <button 
-              onClick={() => setIsFilterOpen(!isFilterOpen)} 
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
               className={`btn btn-secondary ${isFilterOpen ? 'active' : ''}`}
             >
               <Filter size={18} />
@@ -253,19 +300,19 @@ const getSelectedPlayerNames = () => {
                 </label>
               ))}
             </div>
-		{selectedPlayers.size > 0 && (
-		  <div className="filter-summary">
-		    <div className="filter-info">
-		      <strong>Exclusive Filter Active:</strong> Showing matches where ALL players are from the {selectedPlayers.size} selected players
-		    </div>
-		    <div className="selected-players">
-		      <strong>Selected Players:</strong> {getSelectedPlayerNames()}
-		    </div>
-		    <div className="match-count">
-		      <strong>Matching Exclusive Combinations:</strong> {getExclusiveMatchCount()} matches
-		    </div>
-		  </div>
-		)}            
+        {selectedPlayers.size > 0 && (
+          <div className="filter-summary">
+            <div className="filter-info">
+              <strong>Exclusive Filter Active:</strong> Showing matches where ALL players are from the {selectedPlayers.size} selected players
+            </div>
+            <div className="selected-players">
+              <strong>Selected Players:</strong> {getSelectedPlayerNames()}
+            </div>
+            <div className="match-count">
+              <strong>Matching Exclusive Combinations:</strong> {getExclusiveMatchCount()} matches
+            </div>
+          </div>
+        )}
           </div>
         )}
 
@@ -284,100 +331,140 @@ const getSelectedPlayerNames = () => {
           </div>
         </div>
 
-        {/* Unplayed Matches Section */}
+        {/* Completed Matches Section - SHOWN FIRST */}
         <div className="matches-section">
-          <h2 className="section-title">
-            <Calendar size={20} />
-            Unplayed Matches ({unplayedMatches.length})
-          </h2>
-          
-          {unplayedMatches.length === 0 ? (
-            <div className="empty-state">
-              <p>No unplayed matches found.</p>
-              {selectedPlayers.size > 0 && (
-                <p>Try adjusting your player filter or add new matches.</p>
-              )}
-            </div>
-          ) : (
-            <div className="matches-list">
-              {unplayedMatches.map(match => (
-                <div key={match.id} className="match-card unplayed">
-                  <div className="match-teams">
-                    <div className="team">
-                      {formatTeamDisplay(match.team1)}
+          <div
+            className="section-header"
+            onClick={() => toggleSection('completed', showCompletedMatches)}
+          >
+            <h2 className="section-title">
+              <Trophy size={20} />
+              Completed Matches ({completedMatches.length})
+            </h2>
+            {showCompletedMatches ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </div>
+
+          <div
+            ref={completedSectionRef}
+            className={`section-content ${!showCompletedMatches ? 'collapsed' : ''}`}
+          >
+            {completedMatches.length === 0 ? (
+              <div className="empty-state">
+                <p>No completed matches yet.</p>
+              </div>
+            ) : (
+              <div className="matches-list">
+                {completedMatches.map(match => (
+                  <div key={match.id} className="match-card completed">
+                    <div className="match-teams">
+                      <div className={`team ${match.winner_team_id === match.team1_id ? 'winner' : ''}`}>
+                        {formatTeamDisplay(match.team1)}
+                        <div className="score">{match.team1_score}</div>
+                      </div>
+                      <div className="vs">VS</div>
+                      <div className={`team ${match.winner_team_id === match.team2_id ? 'winner' : ''}`}>
+                        {formatTeamDisplay(match.team2)}
+                        <div className="score">{match.team2_score}</div>
+                      </div>
                     </div>
-                    <div className="vs">VS</div>
-                    <div className="team">
-                      {formatTeamDisplay(match.team2)}
+                    <div className="match-info">
+                      <span className="status-badge status-completed">
+                        Completed
+                      </span>
+                      {match.scheduled_date && (
+                        <span className="match-date">
+                          {new Date(match.scheduled_date).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="match-actions">
+                      <button
+                        onClick={() => handleUpdateScore(match)}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Update Score
+                      </button>
+                      <ProtectedAdminButton
+                        onClick={() => handleDeleteMatch(match.id)}
+                        className="btn btn-danger btn-sm"
+                        title="Delete match"
+                        modalTitle="Delete Completed Match"
+                        modalMessage="Warning: Deleting a completed match will revert all player statistics and ELO ratings associated with this match."
+                      >
+                        <Trash2 size={16} />
+                        Delete
+                      </ProtectedAdminButton>
                     </div>
                   </div>
-                  <div className="match-info">
-                    <span className="status-badge status-scheduled">
-                      {match.scheduled_date ? `Scheduled: ${new Date(match.scheduled_date).toLocaleDateString()}` : 'Not Scheduled'}
-                    </span>
-                  </div>
-                  <div className="match-actions">
-                    <button 
-                      onClick={() => handleUpdateScore(match)}
-                      className="btn btn-primary btn-sm"
-                    >
-                      Record Score
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Completed Matches Section */}
+        {/* Unplayed Matches Section */}
         <div className="matches-section">
-          <h2 className="section-title">
-            <Trophy size={20} />
-            Completed Matches ({completedMatches.length})
-          </h2>
-          
-          {completedMatches.length === 0 ? (
-            <div className="empty-state">
-              <p>No completed matches yet.</p>
-            </div>
-          ) : (
-            <div className="matches-list">
-              {completedMatches.map(match => (
-                <div key={match.id} className="match-card completed">
-                  <div className="match-teams">
-                    <div className={`team ${match.winner_team_id === match.team1_id ? 'winner' : ''}`}>
-                      {formatTeamDisplay(match.team1)}
-                      <div className="score">{match.team1_score}</div>
+          <div
+            className="section-header"
+            onClick={() => toggleSection('unplayed', showUnplayedMatches)}
+            ref={unplayedSectionRef}
+          >
+            <h2 className="section-title">
+              <Calendar size={20} />
+              Unplayed Matches ({unplayedMatches.length})
+            </h2>
+            {showUnplayedMatches ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </div>
+
+          <div
+            className={`section-content ${!showUnplayedMatches ? 'collapsed' : ''}`}
+          >
+            {unplayedMatches.length === 0 ? (
+              <div className="empty-state">
+                <p>No unplayed matches found.</p>
+                {selectedPlayers.size > 0 && (
+                  <p>Try adjusting your player filter or add new matches.</p>
+                )}
+              </div>
+            ) : (
+              <div className="matches-list scrollable-match-list">
+                {unplayedMatches.map(match => (
+                  <div key={match.id} className="match-card unplayed">
+                    <div className="match-teams">
+                      <div className="team">
+                        {formatTeamDisplay(match.team1)}
+                      </div>
+                      <div className="vs">VS</div>
+                      <div className="team">
+                        {formatTeamDisplay(match.team2)}
+                      </div>
                     </div>
-                    <div className="vs">VS</div>
-                    <div className={`team ${match.winner_team_id === match.team2_id ? 'winner' : ''}`}>
-                      {formatTeamDisplay(match.team2)}
-                      <div className="score">{match.team2_score}</div>
-                    </div>
-                  </div>
-                  <div className="match-info">
-                    <span className="status-badge status-completed">
-                      Completed
-                    </span>
-                    {match.scheduled_date && (
-                      <span className="match-date">
-                        {new Date(match.scheduled_date).toLocaleDateString()}
+                    <div className="match-info">
+                      <span className="status-badge status-scheduled">
+                        {match.scheduled_date ? `Scheduled: ${new Date(match.scheduled_date).toLocaleDateString()}` : 'Not Scheduled'}
                       </span>
-                    )}
+                    </div>
+                    <div className="match-actions">
+                      <button
+                        onClick={() => handleUpdateScore(match)}
+                        className="btn btn-primary btn-sm"
+                      >
+                        Record Score
+                      </button>
+                      <ProtectedAdminButton
+                        onClick={() => handleDeleteMatch(match.id)}
+                        className="btn btn-danger btn-sm"
+                        title="Delete match"
+                      >
+                        <Trash2 size={16} />
+                        Delete
+                      </ProtectedAdminButton>
+                    </div>
                   </div>
-                  <div className="match-actions">
-                    <button 
-                      onClick={() => handleUpdateScore(match)}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      Update Score
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Add Match Modal */}
@@ -388,9 +475,10 @@ const getSelectedPlayerNames = () => {
         >
           <MatchForm
             teams={teams}
-            players={players}  // ADD THIS LINE - Make sure players is passed	  
+            players={players}
             onSubmit={handleMatchSubmit}
             onCancel={() => setIsMatchModalOpen(false)}
+            includeScores={true} /* NEW: Enable score input during match creation */
           />
         </Modal>
 
@@ -412,4 +500,3 @@ const getSelectedPlayerNames = () => {
 };
 
 export default Matches;
-

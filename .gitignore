@@ -36,3 +36,8 @@
 ehthumbs.db
 Thumbs.db
 
+node_modules/
+supabase/
+.env.local
+changes-summary.md
+dist/

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Users, UserPlus, Calendar, BarChart3, Home, Award } from 'lucide-react';
+import { Users, UserPlus, Calendar, BarChart3, Home, Award, Menu, X } from 'lucide-react';
 
 const Header = () => {
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
@@ -14,6 +15,10 @@ const Header = () => {
     { path: '/elo-statistics', label: 'ELO Rankings', icon: Award }
   ];
 
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
   return (
     <header className="header">
       <div className="container">
@@ -21,7 +26,18 @@ const Header = () => {
           <div className="logo">
             <h1>🏸 Badminton League Manager</h1>
           </div>
-          <nav className="nav">
+          
+          {/* Mobile menu toggle */}
+          <button 
+            className="mobile-menu-toggle" 
+            onClick={toggleMobileMenu}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+          
+          {/* Regular desktop navigation */}
+          <nav className={`nav desktop-nav`}>
             {navItems.map(({ path, label, icon: Icon }) => (
               <Link
                 key={path}
@@ -29,6 +45,21 @@ const Header = () => {
                 className={`nav-link ${location.pathname === path ? 'active' : ''}`}
               >
                 <Icon size={18} />
+                <span>{label}</span>
+              </Link>
+            ))}
+          </nav>
+          
+          {/* Mobile navigation */}
+          <nav className={`nav mobile-nav ${mobileMenuOpen ? 'open' : ''}`}>
+            {navItems.map(({ path, label, icon: Icon }) => (
+              <Link
+                key={path}
+                to={path}
+                className={`nav-link ${location.pathname === path ? 'active' : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Icon size={20} />
                 <span>{label}</span>
               </Link>
             ))}

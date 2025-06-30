@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { supabaseService } from '../services/supabaseService';
+import { matchService } from '../services/matchService';
+import { deleteMatchWithStats } from '../services/matchDeletion';
+import { createMatchWithScores } from '../services/matchCreation'; // Import the new function
 import { roundRobinScheduler } from '../utils/schedulingUtils';
 import { badmintonEloSystem } from '../utils/BadmintonEloSystem';
 
@@ -22,7 +25,8 @@ const ACTION_TYPES = {
   ADD_MATCH: 'ADD_MATCH',
   ADD_MATCHES: 'ADD_MATCHES',
   UPDATE_MATCH: 'UPDATE_MATCH',
-  DELETE_ALL_MATCHES: 'DELETE_ALL_MATCHES', // New action type
+  DELETE_MATCH: 'DELETE_MATCH', // New action type
+  DELETE_ALL_MATCHES: 'DELETE_ALL_MATCHES',
   SET_AVAILABLE_PLAYERS: 'SET_AVAILABLE_PLAYERS',
   GENERATE_SCHEDULE: 'GENERATE_SCHEDULE',
   UPDATE_MATCH_SCORE: 'UPDATE_MATCH_SCORE'
@@ -192,7 +196,19 @@ function leagueReducer(state, action) {
         }
       };
 
-    // NEW: Delete all matches action
+    case ACTION_TYPES.DELETE_MATCH:
+      const filteredMatches = state.matches.filter(match => match.id !== action.payload);
+      const newCompletedMatches = filteredMatches.filter(match => match.status === 'completed').length;
+      return {
+        ...state,
+        matches: filteredMatches,
+        statistics: {
+          ...state.statistics,
+          totalMatches: filteredMatches.length,
+          completedMatches: newCompletedMatches
+        }
+      };
+
     case ACTION_TYPES.DELETE_ALL_MATCHES:
       return {
         ...state,
@@ -227,7 +243,6 @@ export function LeagueProvider({ children }) {
   const loadInitialData = async () => {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
-
       const [playersData, teamsData, matchesData] = await Promise.all([
         supabaseService.getPlayers(), // Already sorted by points in the service
         supabaseService.getTeams(), // Already sorted by points in the service
@@ -237,35 +252,34 @@ export function LeagueProvider({ children }) {
       dispatch({ type: ACTION_TYPES.SET_PLAYERS, payload: playersData });
       dispatch({ type: ACTION_TYPES.SET_TEAMS, payload: teamsData });
       dispatch({ type: ACTION_TYPES.SET_MATCHES, payload: matchesData });
-
-    } catch (error) {
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-    } finally {
-      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
-    }
-  };
+  } catch (error) {
+    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+  } finally {
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+  }
+};
 
   // Player actions
   const addPlayer = async (playerData) => {
-    try {
-      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+  try {
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
       const newPlayer = await supabaseService.addPlayer(playerData);
       dispatch({ type: ACTION_TYPES.ADD_PLAYER, payload: newPlayer });
-    } catch (error) {
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-    } finally {
-      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
-    }
-  };
+  } catch (error) {
+    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+  } finally {
+    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+  }
+};
 
   const updatePlayer = async (id, playerData) => {
     try {
       const updatedPlayer = await supabaseService.updatePlayer(id, playerData);
       dispatch({ type: ACTION_TYPES.UPDATE_PLAYER, payload: updatedPlayer });
-    } catch (error) {
-      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-    }
-  };
+  } catch (error) {
+    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+  }
+};
 
   const deletePlayer = async (id) => {
     try {
@@ -324,142 +338,218 @@ export function LeagueProvider({ children }) {
   };
 
   // Match actions
+  // FIXED: Add match with proper handling for scores
   const addMatch = async (matchData) => {
     try {
-      const newMatch = await supabaseService.addMatch(matchData);
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+      // Check if scores are included to determine if we need ELO processing
+      const includesScores = matchData.team1Score !== undefined && matchData.team2Score !== undefined;
+
+      let newMatch;
+      if (!includesScores) {
+        // Simple match creation without scores
+        newMatch = await supabaseService.addMatch(matchData);
+      } else {
+        // Use our specialized function for match creation with scores
+        newMatch = await createMatchWithScores(matchData);
+      }
+
+      // Add to state
       dispatch({ type: ACTION_TYPES.ADD_MATCH, payload: newMatch });
+
+      // If scores were added, reload data to ensure ELO ratings are refreshed
+      if (includesScores) {
+          await loadInitialData();
+      }
+
+      return newMatch;
     } catch (error) {
+      console.error('Error creating match:', error);
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
     }
   };
 
-// FIXED: Enhanced match update using service layer
-const updateMatch = async (matchId, matchData) => {
-  try {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
-    
-    // Get current match to check completion status
-    const currentMatch = state.matches.find(m => m.id === matchId);
-    if (!currentMatch) {
-      throw new Error('Match not found');
-    }
+  // OPTIMIZED: Enhanced match update using optimized service
+  const updateMatch = async (matchId, matchData) => {
+    try {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+      console.time('match-update'); // Performance measurement
 
-    // Check if this is a score update
-    const isScoreUpdate = matchData.team1Score !== undefined && matchData.team2Score !== undefined;
-    const wasAlreadyCompleted = currentMatch.status === 'completed';
+      // Get current match to check completion status
+      const currentMatch = state.matches.find(m => m.id === matchId);
+      if (!currentMatch) {
+        throw new Error('Match not found');
+      }
 
-    console.log('Match update details:', {
-      matchId,
-      isScoreUpdate,
-      wasAlreadyCompleted
-    });
+      // Check if this is a score update
+      const isScoreUpdate = matchData.team1Score !== undefined && matchData.team2Score !== undefined;
+      const wasAlreadyCompleted = currentMatch.status === 'completed';
 
-    if (isScoreUpdate) {
-      // Use existing match data from state, but get fresh team/player data if needed
-      const team1Players = currentMatch.team1?.team_players?.map(tp => {
-        const player = tp.players;
-        if (!player || !player.id) {
-          console.error('Invalid team1 player data:', tp);
-          return null;
-        }
-        return {
-          ...player,
-          elo_rating: player.elo_rating || 1500,
-          elo_games_played: player.elo_games_played || 0,
-          peak_elo_rating: player.peak_elo_rating || player.elo_rating || 1500,
-          matches_played: player.matches_played || 0,
-          matches_won: player.matches_won || 0,
-          points: player.points || 0
-        };
-      }).filter(Boolean) || [];
-      
-      const team2Players = currentMatch.team2?.team_players?.map(tp => {
-        const player = tp.players;
-        if (!player || !player.id) {
-          console.error('Invalid team2 player data:', tp);
-          return null;
-        }
-        return {
-          ...player,
-          elo_rating: player.elo_rating || 1500,
-          elo_games_played: player.elo_games_played || 0,
-          peak_elo_rating: player.peak_elo_rating || player.elo_rating || 1500,
-          matches_played: player.matches_played || 0,
-          matches_won: player.matches_won || 0,
-          points: player.points || 0
-        };
-      }).filter(Boolean) || [];
-
-      console.log('Player data for ELO:', {
-        team1Players: team1Players.map(p => ({ id: p.id, name: p.name, elo: p.elo_rating })),
-        team2Players: team2Players.map(p => ({ id: p.id, name: p.name, elo: p.elo_rating }))
+      console.log('Match update details:', {
+        matchId,
+        isScoreUpdate,
+        wasAlreadyCompleted
       });
 
-      if (team1Players.length === 2 && team2Players.length === 2) {
-        // Calculate ELO updates
-        const eloUpdates = badmintonEloSystem.processMatchResult(
-          team1Players,
-          team2Players,
-          matchData.team1Score,
-          matchData.team2Score
-        );
+      if (isScoreUpdate) {
+        // Use cached player data from state if available
+        let team1Players = [];
+        let team2Players = [];
 
-        console.log('ELO updates calculated:', eloUpdates);
+        if (currentMatch.team1?.team_players) {
+          team1Players = currentMatch.team1.team_players
+            .map(tp => {
+              // Find full player data in state
+              const playerId = tp.player_id;
+              const statePlayer = state.players.find(p => p.id === playerId);
 
-        // Enhanced match data
-        const enhancedMatchData = {
-          ...matchData,
-          status: 'completed',
-          winner_team_id: matchData.team1Score > matchData.team2Score ? currentMatch.team1_id : currentMatch.team2_id,
-          team1Id: currentMatch.team1_id,
-          team2Id: currentMatch.team2_id
-        };
+              // Use either cached data or fallback to what's in the match data
+              return statePlayer || tp.players;
+            })
+            .filter(Boolean)
+            .map(player => ({
+            ...player,
+            elo_rating: player.elo_rating || 1500,
+            elo_games_played: player.elo_games_played || 0,
+            peak_elo_rating: player.peak_elo_rating || player.elo_rating || 1500,
+            matches_played: player.matches_played || 0,
+            matches_won: player.matches_won || 0,
+            points: player.points || 0
+            }));
+        }
 
-        // Update match with ELO processing
-        const updatedMatch = await supabaseService.updateMatchWithElo(
-          matchId, 
-          enhancedMatchData, 
-          eloUpdates,
-          wasAlreadyCompleted
-        );
+        if (currentMatch.team2?.team_players) {
+          team2Players = currentMatch.team2.team_players
+            .map(tp => {
+              // Find full player data in state
+              const playerId = tp.player_id;
+              const statePlayer = state.players.find(p => p.id === playerId);
 
-        console.log('Match updated successfully:', updatedMatch.id);
+              // Use either cached data or fallback to what's in the match data
+              return statePlayer || tp.players;
+            })
+            .filter(Boolean)
+            .map(player => ({
+            ...player,
+            elo_rating: player.elo_rating || 1500,
+            elo_games_played: player.elo_games_played || 0,
+            peak_elo_rating: player.peak_elo_rating || player.elo_rating || 1500,
+            matches_played: player.matches_played || 0,
+            matches_won: player.matches_won || 0,
+            points: player.points || 0
+            }));
+        }
 
-        // Update local state
-        dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
-        
-        // Reload data to reflect ELO changes
-        await loadInitialData();
-        
-        return updatedMatch;
-      } else {
-        console.error('Invalid player count:', {
-          team1Count: team1Players.length,
-          team2Count: team2Players.length
+        console.log('Using player data:', {
+          team1PlayersCount: team1Players.length,
+          team2PlayersCount: team2Players.length
         });
-        throw new Error(`Invalid player data: Team1 has ${team1Players.length} players, Team2 has ${team2Players.length} players. Expected 2 each.`);
+
+        if (team1Players.length === 2 && team2Players.length === 2) {
+          console.time('elo-calculation'); // Measure ELO calculation time
+          // Calculate ELO updates
+          const eloUpdates = badmintonEloSystem.processMatchResult(
+            team1Players,
+            team2Players,
+            matchData.team1Score,
+            matchData.team2Score
+  );
+          console.timeEnd('elo-calculation');
+
+          console.log('ELO updates calculated:', eloUpdates);
+
+          // Enhanced match data
+          const enhancedMatchData = {
+            ...matchData,
+            status: 'completed',
+            winner_team_id: matchData.team1Score > matchData.team2Score ? currentMatch.team1_id : currentMatch.team2_id,
+            team1Id: currentMatch.team1_id,
+            team2Id: currentMatch.team2_id
+          };
+
+          console.time('db-update'); // Measure database update time
+          // Use the optimized service for better performance
+          const updatedMatch = await matchService.updateMatchWithElo(
+            matchId,
+            enhancedMatchData,
+            eloUpdates,
+            wasAlreadyCompleted
+          );
+          console.timeEnd('db-update');
+
+          console.log('Match updated successfully:', updatedMatch.id);
+
+          // Update local state first for immediate UI feedback
+          dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+
+          // Load fresh data in the background
+          setTimeout(() => {
+            loadInitialData().catch(error => {
+              console.error('Background data reload error:', error);
+            });
+          }, 500);
+
+          console.timeEnd('match-update');
+          return updatedMatch;
+        } else {
+          console.error('Invalid player count:', {
+            team1Count: team1Players.length,
+            team2Count: team2Players.length
+          });
+          throw new Error(`Invalid player data: Team1 has ${team1Players.length} players, Team2 has ${team2Players.length} players. Expected 2 each.`);
+}
+      } else {
+        // Regular match update without scores
+        const updatedMatch = await matchService.updateMatch(matchId, matchData);
+        dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+        console.timeEnd('match-update');
+        return updatedMatch;
       }
-    } else {
-      // Regular match update without scores
-      const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
-      dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
-      return updatedMatch;
+
+    } catch (error) {
+      console.error('Match update error:', error);
+      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
     }
-    
-  } catch (error) {
-    console.error('Match update error:', error);
-    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-    throw error;
-  } finally {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
-  }
-};
-	
+  };
 
+  // FIXED: Delete individual match function using our fixed implementation
+  const deleteMatch = async (matchId) => {
+    try {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
 
+      // Get match to check if it was completed
+      const match = state.matches.find(m => m.id === matchId);
+      if (!match) {
+        throw new Error('Match not found');
+      }
 
+      // Use our fixed deletion function that doesn't rely on supabase.raw()
+      await deleteMatchWithStats(matchId, match.status === 'completed');
 
-  // NEW: Delete all matches
+          // Update local state
+      dispatch({ type: ACTION_TYPES.DELETE_MATCH, payload: matchId });
+
+      // Reload data to reflect stats changes
+      if (match.status === 'completed') {
+          await loadInitialData();
+      }
+
+    } catch (error) {
+      console.error('Error deleting match:', error);
+      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+    }
+  };
+
+  // Delete all matches
   const deleteAllMatches = async () => {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
@@ -482,235 +572,235 @@ const updateMatch = async (matchId, matchData) => {
     }
   };
 
-const generateRoundRobinSchedule = async () => {
-  try {
-    console.log('🚀 Starting match generation process...');
-    
-    if (state.teams.length < 2) {
-      throw new Error('At least 2 teams are required for scheduling');
-    }
+  const generateRoundRobinSchedule = async () => {
+    try {
+      console.log('🚀 Starting match generation process...');
 
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
-    
-    // Pre-validation: Check team data integrity
-    console.log('🔍 Pre-validation check...');
-    const validTeams = state.teams.filter(team => 
-      team.players && Array.isArray(team.players) && team.players.length === 2
-    );
-    
-    const invalidTeams = state.teams.filter(team => 
-      !team.players || !Array.isArray(team.players) || team.players.length !== 2
-    );
-
-    if (invalidTeams.length > 0) {
-      console.error('❌ Invalid teams detected:', invalidTeams.map(t => ({
-        name: t.name,
-        playersType: typeof t.players,
-        playersLength: Array.isArray(t.players) ? t.players.length : 'N/A'
-      })));
-      
-      throw new Error(`Found ${invalidTeams.length} invalid teams without proper player data. Please check: ${invalidTeams.map(t => t.name).join(', ')}`);
-    }
-
-    console.log(`✅ Pre-validation passed: ${validTeams.length} valid teams`);
-    
-    // Detailed team data logging
-    console.log('📊 Teams for scheduling:', validTeams.map(team => ({
-      id: team.id,
-      name: team.name,
-      skillCombination: team.skill_combination,
-      playerCount: team.players?.length || 0,
-      players: team.players?.map(p => ({ id: p.id, name: p.name, skill: p.skill_level })) || []
-    })));
-    
-    // Generate the schedule using the enhanced algorithm
-    const schedule = roundRobinScheduler.generateSchedule(validTeams);
-    
-    if (!schedule || schedule.length === 0) {
-      throw new Error('No valid matches could be generated. Please check team compositions and skill combinations');
-    }
-    
-    console.log('✅ Generated schedule:', schedule);
-    
-    // Convert schedule to database-compatible matches  
-    const matchesToAdd = roundRobinScheduler.convertScheduleToMatches(schedule);
-    
-    if (matchesToAdd.length > 0) {
-      console.log('💾 Saving matches to database:', matchesToAdd.length);
-      
-      // Save all matches to database
-      const savedMatches = await supabaseService.addMatches(matchesToAdd);
-      
-      console.log('🎉 Successfully saved matches:', savedMatches.length);
-      
-      // Update state with new matches
-      dispatch({ type: ACTION_TYPES.ADD_MATCHES, payload: savedMatches });
-      
-      // Store the schedule for reference
-      dispatch({ type: ACTION_TYPES.GENERATE_SCHEDULE, payload: schedule });
-      
-      return schedule;
-    } else {
-      throw new Error('No matches were generated from the schedule');
-    }
-    
-  } catch (error) {
-    console.error('💥 Schedule generation error:', error);
-    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-    throw error;
-  } finally {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
-  }
-};
-
-
-// ENHANCED: Team generation with better validation
-const generateAutomaticTeams = async (players) => {
-  try {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
-    
-    console.log('🤖 Starting automatic team generation with players:', players);
-    
-    // Validate minimum players
-    if (!players || players.length < 4) {
-      throw new Error('At least 4 players are required to generate teams (2 teams minimum)');
-    }
-    
-    // Check for required fields
-    const playersWithGender = players.filter(p => p.gender && p.skill_level);
-    if (playersWithGender.length < players.length) {
-      throw new Error('All players must have both gender and skill level assigned');
-    }
-    
-    // Generate teams using enhanced algorithm
-    const generatedTeams = roundRobinScheduler.generateSkillBasedTeams(playersWithGender);
-    
-    if (generatedTeams.length === 0) {
-      throw new Error('No teams could be generated. Check player skill distributions and gender balance.');
-    }
-
-    console.log(`🎯 Generated ${generatedTeams.length} teams:`, generatedTeams);
-
-    // Add all generated teams to database
-    let successCount = 0;
-    let errorCount = 0;
-    
-    for (const team of generatedTeams) {
-      try {
-        await addTeam({
-          name: team.name,
-          skillCombination: team.skill_combination,
-          teamType: team.team_type,
-          playerIds: team.playerIds
-        });
-        successCount++;
-      } catch (teamError) {
-        console.error('❌ Error adding team:', team.name, teamError);
-        errorCount++;
+      if (state.teams.length < 2) {
+        throw new Error('At least 2 teams are required for scheduling');
       }
-    }
 
-    const message = `Team generation completed! ✅ ${successCount} teams created successfully` + 
-                   (errorCount > 0 ? `, ❌ ${errorCount} teams failed` : '');
-    
-    console.log(`\n🏆 TEAM GENERATION SUMMARY:`);
-    console.log(`   ✅ Successful: ${successCount}`);
-    console.log(`   ❌ Failed: ${errorCount}`);
-    console.log(`   📊 Success rate: ${((successCount / generatedTeams.length) * 100).toFixed(1)}%`);
-    
-    return { success: true, message, teamsCreated: successCount };
-    
-  } catch (error) {
-    console.error('❌ Team generation error:', error);
-    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-    throw error;
-  } finally {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
-  }
-};
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
 
-// Add this enhanced match update function to your LeagueContext
+      // Pre-validation: Check team data integrity
+      console.log('🔍 Pre-validation check...');
+      const validTeams = state.teams.filter(team =>
+        team.players && Array.isArray(team.players) && team.players.length === 2
+      );
 
-const updateMatchWithEloProcessing = async (matchId, matchData) => {
-  try {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
-    
-    // Get current match with team and player data
-    const currentMatch = state.matches.find(m => m.id === matchId);
-    if (!currentMatch) {
-      throw new Error('Match not found');
-    }
+      const invalidTeams = state.teams.filter(team =>
+        !team.players || !Array.isArray(team.players) || team.players.length !== 2
+      );
 
-    // Only process ELO if scores are being recorded
-    if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
-      // Get team players for ELO calculation
-      const team1Players = currentMatch.team1?.team_players?.map(tp => ({
-        ...tp.players,
-        elo_rating: tp.players.elo_rating || 1500,
-        elo_games_played: tp.players.elo_games_played || 0
-      })) || [];
-      
-      const team2Players = currentMatch.team2?.team_players?.map(tp => ({
-        ...tp.players,
-        elo_rating: tp.players.elo_rating || 1500,
-        elo_games_played: tp.players.elo_games_played || 0
-      })) || [];
+      if (invalidTeams.length > 0) {
+        console.error('❌ Invalid teams detected:', invalidTeams.map(t => ({
+          name: t.name,
+          playersType: typeof t.players,
+          playersLength: Array.isArray(t.players) ? t.players.length : 'N/A'
+        })));
 
-      if (team1Players.length === 2 && team2Players.length === 2) {
-        // Calculate ELO updates
-        const eloUpdates = badmintonEloSystem.processMatchResult(
-          team1Players,
-          team2Players,
-          matchData.team1Score,
-          matchData.team2Score
-        );
+        throw new Error(`Found ${invalidTeams.length} invalid teams without proper player data. Please check: ${invalidTeams.map(t => t.name).join(', ')}`);
+      }
 
-        // Add additional data needed for database updates
-        const enhancedEloUpdates = eloUpdates.map(update => ({
-          ...update,
-          oldPeakRating: team1Players.concat(team2Players)
-            .find(p => p.id === update.playerId)?.peak_elo_rating || update.oldRating,
-          oldGamesPlayed: team1Players.concat(team2Players)
-            .find(p => p.id === update.playerId)?.elo_games_played || 0
-        }));
+      console.log(`✅ Pre-validation passed: ${validTeams.length} valid teams`);
 
-        // Update match with ELO processing
-        const updatedMatch = await supabaseService.updateMatchWithElo(
-          matchId, 
-          matchData, 
-          enhancedEloUpdates
-        );
+      // Detailed team data logging
+      console.log('📊 Teams for scheduling:', validTeams.map(team => ({
+        id: team.id,
+        name: team.name,
+        skillCombination: team.skill_combination,
+        playerCount: team.players?.length || 0,
+        players: team.players?.map(p => ({ id: p.id, name: p.name, skill: p.skill_level })) || []
+      })));
 
-        // Update local state
-        dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
-        
-        // Reload player and team data to reflect ELO changes
-        await loadInitialData();
-        
-        return { 
-          match: updatedMatch, 
-          eloUpdates: enhancedEloUpdates 
-        };
+      // Generate the schedule using the enhanced algorithm
+      const schedule = roundRobinScheduler.generateSchedule(validTeams);
+
+      if (!schedule || schedule.length === 0) {
+        throw new Error('No valid matches could be generated. Please check team compositions and skill combinations');
+      }
+
+      console.log('✅ Generated schedule:', schedule);
+
+      // Convert schedule to database-compatible matches
+      const matchesToAdd = roundRobinScheduler.convertScheduleToMatches(schedule);
+
+      if (matchesToAdd.length > 0) {
+        console.log('💾 Saving matches to database:', matchesToAdd.length);
+
+        // Save all matches to database
+        const savedMatches = await supabaseService.addMatches(matchesToAdd);
+
+        console.log('🎉 Successfully saved matches:', savedMatches.length);
+
+        // Update state with new matches
+        dispatch({ type: ACTION_TYPES.ADD_MATCHES, payload: savedMatches });
+
+        // Store the schedule for reference
+        dispatch({ type: ACTION_TYPES.GENERATE_SCHEDULE, payload: schedule });
+
+        return schedule;
       } else {
-        // Fallback to regular match update if player data is incomplete
-        console.warn('Incomplete player data for ELO calculation, using regular update');
+        throw new Error('No matches were generated from the schedule');
+      }
+
+    } catch (error) {
+      console.error('💥 Schedule generation error:', error);
+      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+    }
+  };
+
+
+  // ENHANCED: Team generation with better validation
+  const generateAutomaticTeams = async (players) => {
+    try {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+
+      console.log('🤖 Starting automatic team generation with players:', players);
+
+      // Validate minimum players
+      if (!players || players.length < 4) {
+        throw new Error('At least 4 players are required to generate teams (2 teams minimum)');
+      }
+
+      // Check for required fields
+      const playersWithGender = players.filter(p => p.gender && p.skill_level);
+      if (playersWithGender.length < players.length) {
+        throw new Error('All players must have both gender and skill level assigned');
+      }
+
+      // Generate teams using enhanced algorithm
+      const generatedTeams = roundRobinScheduler.generateSkillBasedTeams(playersWithGender);
+
+      if (generatedTeams.length === 0) {
+        throw new Error('No teams could be generated. Check player skill distributions and gender balance.');
+      }
+
+      console.log(`🎯 Generated ${generatedTeams.length} teams:`, generatedTeams);
+
+      // Add all generated teams to database
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const team of generatedTeams) {
+        try {
+          await addTeam({
+            name: team.name,
+            skillCombination: team.skill_combination,
+            teamType: team.team_type,
+            playerIds: team.playerIds
+          });
+          successCount++;
+        } catch (teamError) {
+          console.error('❌ Error adding team:', team.name, teamError);
+          errorCount++;
+        }
+      }
+
+      const message = `Team generation completed! ✅ ${successCount} teams created successfully` +
+                    (errorCount > 0 ? `, ❌ ${errorCount} teams failed` : '');
+
+      console.log(`\n🏆 TEAM GENERATION SUMMARY:`);
+      console.log(`   ✅ Successful: ${successCount}`);
+      console.log(`   ❌ Failed: ${errorCount}`);
+      console.log(`   📊 Success rate: ${((successCount / generatedTeams.length) * 100).toFixed(1)}%`);
+
+      return { success: true, message, teamsCreated: successCount };
+
+    } catch (error) {
+      console.error('❌ Team generation error:', error);
+      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+    }
+  };
+
+  // Add this enhanced match update function to your LeagueContext
+
+  const updateMatchWithEloProcessing = async (matchId, matchData) => {
+    try {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+
+      // Get current match with team and player data
+      const currentMatch = state.matches.find(m => m.id === matchId);
+      if (!currentMatch) {
+        throw new Error('Match not found');
+      }
+
+      // Only process ELO if scores are being recorded
+      if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
+        // Get team players for ELO calculation
+        const team1Players = currentMatch.team1?.team_players?.map(tp => ({
+          ...tp.players,
+          elo_rating: tp.players.elo_rating || 1500,
+          elo_games_played: tp.players.elo_games_played || 0
+        })) || [];
+
+        const team2Players = currentMatch.team2?.team_players?.map(tp => ({
+          ...tp.players,
+          elo_rating: tp.players.elo_rating || 1500,
+          elo_games_played: tp.players.elo_games_played || 0
+        })) || [];
+
+        if (team1Players.length === 2 && team2Players.length === 2) {
+          // Calculate ELO updates
+          const eloUpdates = badmintonEloSystem.processMatchResult(
+            team1Players,
+            team2Players,
+            matchData.team1Score,
+            matchData.team2Score
+          );
+
+          // Add additional data needed for database updates
+          const enhancedEloUpdates = eloUpdates.map(update => ({
+            ...update,
+            oldPeakRating: team1Players.concat(team2Players)
+              .find(p => p.id === update.playerId)?.peak_elo_rating || update.oldRating,
+            oldGamesPlayed: team1Players.concat(team2Players)
+              .find(p => p.id === update.playerId)?.elo_games_played || 0
+          }));
+
+          // Update match with ELO processing
+          const updatedMatch = await supabaseService.updateMatchWithElo(
+            matchId,
+            matchData,
+            enhancedEloUpdates
+          );
+
+          // Update local state
+          dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+
+          // Reload player and team data to reflect ELO changes
+          await loadInitialData();
+
+          return {
+            match: updatedMatch,
+            eloUpdates: enhancedEloUpdates
+          };
+        } else {
+          // Fallback to regular match update if player data is incomplete
+          console.warn('Incomplete player data for ELO calculation, using regular update');
+          const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
+          dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
+          return { match: updatedMatch, eloUpdates: [] };
+        }
+      } else {
+        // Regular match update without scores
         const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
         dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
         return { match: updatedMatch, eloUpdates: [] };
       }
-    } else {
-      // Regular match update without scores
-      const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
-      dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
-      return { match: updatedMatch, eloUpdates: [] };
+
+    } catch (error) {
+      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false});
     }
-    
-  } catch (error) {
-    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-    throw error;
-  } finally {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false});
-  }
 };
 
   const value = {
@@ -724,8 +814,9 @@ const updateMatchWithEloProcessing = async (matchId, matchData) => {
     deleteAllTeams,
     addMatch,
     updateMatch,
-    deleteAllMatches, // Export the new function
-    updateMatchWithEloProcessing,	  
+    deleteMatch, // New function
+    deleteAllMatches,
+    updateMatchWithEloProcessing,
     generateRoundRobinSchedule,
     loadInitialData
   };
@@ -745,4 +836,3 @@ export function useLeague() {
   }
   return context;
 }
-

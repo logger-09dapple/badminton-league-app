@@ -10,6 +10,8 @@ import Matches from './pages/Matches';
 import Statistics from './pages/Statistics';
 import EloStatistics from './components/EloStatistics';
 import './App.css';
+import './styles/MobileResponsive.css';
+import './styles/ScrollFix.css'; // Import scroll fix CSS
 
 function App() {
   return (
