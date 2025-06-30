@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HashRouter } from 'react-router-dom';
 import { LeagueProvider } from './context/LeagueContext';
-import Header from './components/Header';
+import SimpleHeader from './components/SimpleHeader'; // Import the simple header
 import Dashboard from './pages/Dashboard';
 import Players from './pages/Players';
 import Teams from './pages/Teams';
@@ -12,14 +12,13 @@ import EloStatistics from './components/EloStatistics';
 import './App.css';
 import './styles/MobileResponsive.css';
 import './styles/ScrollFix.css';
-import './styles/HeaderStyles.css'; // Import the header styles
 
 function App() {
   return (
     <LeagueProvider>
       <HashRouter>
         <div className="App">
-          <Header />
+          <SimpleHeader /> {/* Use the simple header */}
           <main className="main-content">
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

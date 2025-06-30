@@ -1,0 +1,50 @@
+/* Emergency Mobile Menu Fix */
+
+@media (max-width: 768px) {
+  /* Container positioning */
+  .header .container {
+    position: static;
+  }
+  
+  /* Mobile menu toggle button */
+  .mobile-menu-toggle {
+    display: block;
+    z-index: 1100;
+  }
+  
+  /* Hide desktop nav */
+  .desktop-nav {
+    display: none;
+  }
+  
+  /* Mobile nav basic styling */
+  .mobile-nav {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 100%; /* Just below header */
+    right: 0;
+    width: 80%;
+    max-width: 300px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    border-radius: 0 0 0 8px;
+    z-index: 1050;
+  }
+  
+  /* Visible when open */
+  .mobile-nav.open {
+    display: block;
+  }
+  
+  /* Menu items */
+  .mobile-nav .nav-link {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  
+  .mobile-nav .nav-link span {
+    margin-left: 10px;
+  }
+}

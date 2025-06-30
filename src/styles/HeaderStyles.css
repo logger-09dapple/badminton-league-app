@@ -57,17 +57,11 @@
   z-index: 1001;
 }
 
-/* Style for body when mobile menu is open */
-body.mobile-menu-open {
-    overflow: hidden;
-  }
-  
-@media (min-width: 769px) {
-  body.mobile-menu-open {
-    overflow: auto;
-  }
-  }
-  
+/* Mobile Navigation */
+.mobile-nav {
+  display: none;
+}
+
 /* Mobile Navigation Styles */
 @media (max-width: 768px) {
   .header {
@@ -75,6 +69,7 @@ body.mobile-menu-open {
     top: 0;
     z-index: 1000;
   }
+
   .logo h1 {
     font-size: 1.2rem;
     white-space: nowrap;
@@ -91,38 +86,44 @@ body.mobile-menu-open {
   
   .desktop-nav {
     display: none;
-}
-
+  }
+  
+  /* Mobile menu - FIXED positioning */
   .mobile-nav {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    top: 100%;
+    display: block; /* Changed from flex to ensure visibility */
+    position: fixed; /* Changed from absolute to fixed */
+    top: 56px; /* Height of the header, adjust as needed */
     right: 0;
-    width: 100%;
-    max-width: 250px; 
+    width: 80%;
+    max-width: 300px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     padding: 0;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    max-height: 0;
+    height: 0; /* Use height instead of max-height */
+    opacity: 0;
     overflow: hidden;
-    transition: max-height 0.3s ease-out, padding 0.3s ease;
+    transition: height 0.3s ease-out, opacity 0.3s ease;
     z-index: 1000;
     border-radius: 0 0 0 8px;
   }
   
+  /* OPEN state - IMPORTANT: concrete height */
   .mobile-nav.open {
-    max-height: 400px;
+    height: auto; /* Auto height when open */
+    max-height: 80vh; /* Maximum height constraint */
+    min-height: 300px; /* Minimum height to ensure visibility */
+    opacity: 1;
     padding: 0.5rem 0;
     overflow-y: auto;
   }
   
+  /* Menu items */
   .mobile-nav .nav-link {
-    padding: 0.75rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    width: 100%;
     display: flex;
     align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    width: 100%;
   }
   
   .mobile-nav .nav-link:last-child {
@@ -135,11 +136,6 @@ body.mobile-menu-open {
     font-size: 1rem;
     white-space: nowrap;
   }
-  
-  /* Ensure the container doesn't constrain the menu */
-  .header .container {
-    position: static;
-  }
 }
 
 /* Small Mobile Adjustments */
@@ -150,8 +146,18 @@ body.mobile-menu-open {
   }
   
   .mobile-nav {
-    max-width: 100%;
+    width: 90%;
     right: 0;
-    left: 0;
+  }
+}
+
+/* Style for body when mobile menu is open */
+body.mobile-menu-open {
+  overflow: hidden;
+}
+
+@media (min-width: 769px) {
+  body.mobile-menu-open {
+    overflow: auto;
   }
 }
