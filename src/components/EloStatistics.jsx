@@ -1,8 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabaseService } from '../services/supabaseService';
 import { badmintonEloSystem } from '../utils/BadmintonEloSystem';
 import { TrendingUp, TrendingDown, Award, Medal, Trophy, Star } from 'lucide-react';
+import '../styles/MobileStatistics.css'; // Base mobile-friendly styles
+import '../styles/EloMobileStyles.css'; // Enhanced ELO-specific styles
 
 const EloStatistics = () => {
   const [playerRankings, setPlayerRankings] = useState([]);
@@ -71,10 +72,10 @@ const EloStatistics = () => {
     <div className="elo-statistics">
       <div className="container">
         <div className="page-header">
-          <h1>ELO-Based Rankings & Statistics</h1>
+          <h1>ELO-Based Rankings</h1>
           <div className="stats-summary">
             <div className="summary-item">
-              <span className="summary-label">Avg ELO Rating:</span>
+              <span className="summary-label">Avg ELO Rating</span>
               <span className="summary-value">
                 {playerRankings.length > 0 
                   ? Math.round(playerRankings.reduce((sum, p) => sum + (p.elo_rating || 1500), 0) / playerRankings.length)
@@ -83,8 +84,12 @@ const EloStatistics = () => {
               </span>
             </div>
             <div className="summary-item">
-              <span className="summary-label">Skill Recommendations:</span>
-              <span className="summary-value">{skillRecommendations.length}</span>
+              <span className="summary-label">Total Players</span>
+              <span className="summary-value">{playerRankings.length}</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Total Teams</span>
+              <span className="summary-value">{teamRankings.length}</span>
             </div>
           </div>
         </div>
@@ -124,7 +129,6 @@ const EloStatistics = () => {
                     {getRankIcon(player.rank)}
                     <span className="rank-number">#{player.rank}</span>
                   </div>
-                  
                   <div className="player-info">
                     <div className="player-name">{player.name}</div>
                     <div className="player-meta">
@@ -134,7 +138,6 @@ const EloStatistics = () => {
                       <span className="gender-badge">{player.gender}</span>
                     </div>
                   </div>
-                  
                   <div className="elo-info">
                     <div className="elo-rating">
                       <span className="elo-value">{player.elo_rating || 1500}</span>
@@ -146,7 +149,6 @@ const EloStatistics = () => {
                       </div>
                     )}
                   </div>
-                  
                   <div className="stats-info">
                     <div className="stat-item">
                       <span className="stat-value">{player.matches_played || 0}</span>
@@ -247,8 +249,8 @@ const EloStatistics = () => {
                   
                   <div className="rec-confidence">
                     <div className="confidence-bar">
-                      <div 
-                        className="confidence-fill" 
+                      <div
+                        className="confidence-fill"
                         style={{ width: `${rec.confidence}%` }}
                       ></div>
                     </div>

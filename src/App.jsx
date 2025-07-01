@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HashRouter } from 'react-router-dom';
 import { LeagueProvider } from './context/LeagueContext';
-import SimpleHeader from './components/SimpleHeader'; // Import the simple header
+import SimpleHeader from './components/SimpleHeader';
 import Dashboard from './pages/Dashboard';
 import Players from './pages/Players';
 import Teams from './pages/Teams';
@@ -12,6 +12,9 @@ import EloStatistics from './components/EloStatistics';
 import './App.css';
 import './styles/MobileResponsive.css';
 import './styles/ScrollFix.css';
+import './styles/SimpleHeader.css';
+import './styles/MobileStatistics.css';
+import './styles/EloMobileStyles.css'; // Import ELO-specific mobile styles
 
 function App() {
   return (

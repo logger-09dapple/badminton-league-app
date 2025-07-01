@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLeague } from '../context/LeagueContext';
 import { Trophy, Users, Target, TrendingUp, Medal, Star, Award } from 'lucide-react';
+import '../styles/MobileStatistics.css'; // Import mobile-friendly styles
 
 const Statistics = () => {
   const { players, teams, matches, loading } = useLeague();
@@ -224,16 +225,16 @@ const Statistics = () => {
                           {player.skill_level}
                         </span>
                       </div>
-                      <div className="col-stat">
+                      <div className="col-stat" data-label="Points">
                         <span className="stat-value">{player.points || 0}</span>
                       </div>
-                      <div className="col-stat">
+                      <div className="col-stat" data-label="Matches">
                         <span className="stat-value">{player.matches_played || 0}</span>
                       </div>
-                      <div className="col-stat">
+                      <div className="col-stat" data-label="Wins">
                         <span className="stat-value">{player.matches_won || 0}</span>
                       </div>
-                      <div className="col-stat">
+                      <div className="col-stat" data-label="Win Rate">
                         <span className="stat-value">{player.winRate}%</span>
                       </div>
                     </div>
@@ -287,16 +288,16 @@ const Statistics = () => {
                           {team.skill_combination || 'N/A'}
                         </span>
                       </div>
-                      <div className="col-stat">
+                      <div className="col-stat" data-label="Points">
                         <span className="stat-value">{team.points || 0}</span>
                       </div>
-                      <div className="col-stat">
+                      <div className="col-stat" data-label="Matches">
                         <span className="stat-value">{team.matches_played || 0}</span>
                       </div>
-                      <div className="col-stat">
+                      <div className="col-stat" data-label="Wins">
                         <span className="stat-value">{team.matches_won || 0}</span>
                       </div>
-                      <div className="col-stat">
+                      <div className="col-stat" data-label="Win Rate">
                         <span className="stat-value">{team.winRate}%</span>
                       </div>
                     </div>
@@ -312,4 +313,3 @@ const Statistics = () => {
 };
 
 export default Statistics;
-

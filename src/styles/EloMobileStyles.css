@@ -1,0 +1,150 @@
+/* Mobile-specific styles for ELO Statistics */
+
+/* Stats summary cards */
+.stats-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+  padding: 0 0.5rem;
+}
+
+.summary-item {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+/* Section heading margins */
+.rankings-section h2,
+.recommendations-section h2 {
+  margin: 1.5rem 1rem 1rem 1rem;
+  font-size: 1.25rem;
+}
+
+.recommendations-description {
+  margin: 0 1rem 1rem 1rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+/* Enhanced ranking items for ELO page */
+.ranking-item {
+  position: relative;
+  padding-top: 2.5rem; /* Space for the rank at top */
+}
+
+.ranking-item .rank-info {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  right: auto;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Badge styling */
+.skill-badge {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.gender-badge {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.skill-combo-badge {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.team-type-badge {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+/* Touch-friendly button styles */
+.tab-button {
+  padding: 0.75rem 1rem;
+  height: 44px; /* Minimum touch target size */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loading state */
+.loading {
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 1rem;
+  color: #64748b;
+}
+
+/* Recommendation items */
+.recommendation-item {
+  padding: 1.25rem 1rem;
+}
+
+.rec-player-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+}
+
+.rec-elo {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.rec-change {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background-color: rgba(243, 244, 246, 0.5);
+  border-radius: 0.5rem;
+}
+
+.confidence-text {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: block;
+  text-align: right;
+  margin-top: 0.25rem;
+}
+
+/* Media queries for larger screens */
+@media (min-width: 640px) {
+  .stats-summary {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  
+  .ranking-item {
+    padding-top: 1rem;
+  }
+  
+  .ranking-item .rank-info {
+    position: static;
+    background: transparent;
+    padding: 0;
+  }
+}

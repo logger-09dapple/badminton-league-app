@@ -45,3 +45,32 @@ body, html {
   position: relative;
   width: 100%;
 }
+
+/* Ensure all pages are scrollable on mobile */
+.statistics-page,
+.elo-statistics {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Ensure tables don't overflow horizontally */
+.rankings-table,
+.rankings-list {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Fix overflow on tables */
+.table-row {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Touch target size improvements */
+button, 
+.btn,
+.nav-link {
+  min-height: 44px;
+}
