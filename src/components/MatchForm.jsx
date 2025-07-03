@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { validationUtils } from '../utils/validationUtils';
+import { formatInputDate, formatDisplayDate, parseInputDate } from '../utils/dateUtils';
 import { Users, ArrowRight, CheckCircle } from 'lucide-react';
 
 const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = false }) => {
@@ -10,7 +11,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     team1Id: '',
     team2Id: '',
     scheduledDate: '',
-    status: 'scheduled',
+    status: 'completed',
     // New fields for scores
     team1Score: '',
     team2Score: ''
@@ -18,7 +19,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [showScoreInput, setShowScoreInput] = useState(false);
+  const [showScoreInput, setShowScoreInput] = useState(true);
 
   // Debug logging
   console.log('MatchForm props:', { 
@@ -53,8 +54,8 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
       setFormData({
         team1Id: match.team1_id || match.team1?.id || '',
         team2Id: match.team2_id || match.team2?.id || '',
-        scheduledDate: match.scheduled_date || '',
-        status: match.status || 'scheduled',
+        scheduledDate: match.scheduled_date ? formatInputDate(match.scheduled_date) : '',
+        status: match.status || 'completed',
         team1Score: match.team1_score?.toString() || '',
         team2Score: match.team2_score?.toString() || ''
       });
@@ -94,6 +95,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     if (formData.team1Id && availableTeams1.length > 0) {
       const remainingTeams = availableTeams1.filter(team => team.id !== formData.team1Id);
       setAvailableTeams2(remainingTeams);
+      // Step 3 is team 2 selection, step 4 (score input) is always available after team 2 selection
       setCurrentStep(3);
     } else {
       setAvailableTeams2([]);
@@ -165,24 +167,24 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     const matchData = {
       team1Id: formData.team1Id,
       team2Id: formData.team2Id,
-      scheduledDate: formData.scheduledDate || null,
-      status: formData.status
+      scheduledDate: formData.scheduledDate ? parseInputDate(formData.scheduledDate) : null,
+      status: 'completed' // Always completed since we require scores
     };
 
-    // Add score data if provided
-    if (showScoreInput && formData.team1Score && formData.team2Score) {
-      matchData.team1Score = parseInt(formData.team1Score);
-      matchData.team2Score = parseInt(formData.team2Score);
+    // Always include scores (required now)
+    if (!formData.team1Score || !formData.team2Score) {
+      setErrors({ scores: 'Both team scores are required' });
+      return;
+    }
       
-      // Validate scores
-      const scoreValidation = validationUtils.validateBadmintonScore(matchData.team1Score, matchData.team2Score);
-      if (!scoreValidation.isValid) {
-        setErrors(scoreValidation.errors);
-        return;
-      }
-      
-      // Mark as completed if scores are provided
-      matchData.status = 'completed';
+    matchData.team1Score = parseInt(formData.team1Score);
+    matchData.team2Score = parseInt(formData.team2Score);
+
+    // Validate scores
+    const scoreValidation = validationUtils.validateBadmintonScore(matchData.team1Score, matchData.team2Score);
+    if (!scoreValidation.isValid) {
+      setErrors(scoreValidation.errors);
+      return;
     }
 
     const validation = validationUtils.validateMatch(matchData);
@@ -253,15 +255,11 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
         <div className="step-number">3</div>
         <div className="step-label">Choose Team 2</div>
       </div>
-      {includeScores && (
-        <>
           <ArrowRight className="step-arrow" size={16} />
-          <div className={`step ${currentStep >= 4 && showScoreInput ? 'active' : ''} ${showScoreInput && formData.team1Score && formData.team2Score ? 'completed' : ''}`}>
+      <div className={`step ${currentStep >= 3 && formData.team2Id ? 'active' : ''} ${formData.team1Score && formData.team2Score ? 'completed' : ''}`}>
             <div className="step-number">4</div>
-            <div className="step-label">Record Score</div>
+        <div className="step-label">Enter Score</div>
           </div>
-        </>
-      )}
     </div>
   );
 
@@ -377,9 +375,9 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     </>
   );
 
-  // Render score input fields
+  // Render score input fields - Always show since we require scores
   const renderScoreInput = () => {
-    if (!includeScores || !formData.team1Id || !formData.team2Id) return null;
+    if (!formData.team1Id || !formData.team2Id) return null;
     
     const team1 = validTeams.find(team => team.id === formData.team1Id);
     const team2 = validTeams.find(team => team.id === formData.team2Id);
@@ -388,20 +386,6 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     
     return (
       <div className="match-score-section">
-        <div className="score-toggle-container">
-          <label className="score-toggle-label">
-            <input 
-              type="checkbox" 
-              checked={showScoreInput} 
-              onChange={toggleScoreInput} 
-              className="score-toggle-input"
-            />
-            <span className="score-toggle-text">Record match score now</span>
-          </label>
-        </div>
-        
-        {showScoreInput && (
-          <>
             <h3>Step 4: Record Match Score</h3>
             <div className="teams-display">
               <span className="team-name">{team1.name}</span>
@@ -421,51 +405,50 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
                   className={errors.team1Score ? 'error' : ''}
                   placeholder="0"
                   maxLength="2"
-                />
-                {errors.team1Score && <span className="error-text">{errors.team1Score}</span>}
+              required
+            />
+            {errors.team1Score && <span className="error-text">{errors.team1Score}</span>}
               </div>
+          <div className="score-group">
+            <label htmlFor="team2Score">{team2.name} Score *</label>
+            <input
+              type="text"
+              id="team2Score"
+              name="team2Score"
+              value={formData.team2Score}
+                onChange={handleChange}
+              className={errors.team2Score ? 'error' : ''}
+              placeholder="0"
+              maxLength="2"
+              required
+            />
+            {errors.team2Score && <span className="error-text">{errors.team2Score}</span>}
+            </div>
+          </div>
 
-              <div className="score-group">
-                <label htmlFor="team2Score">{team2.name} Score *</label>
-                <input
-                  type="text"
-                  id="team2Score"
-                  name="team2Score"
-                  value={formData.team2Score}
-                  onChange={handleChange}
-                  className={errors.team2Score ? 'error' : ''}
-                  placeholder="0"
-                  maxLength="2"
-                />
-                {errors.team2Score && <span className="error-text">{errors.team2Score}</span>}
-              </div>
-            </div>
-            
-            {/* Badminton Scoring Rules */}
-            <div className="scoring-rules">
-              <h4>Badminton Scoring Rules:</h4>
-              <ul>
-                <li>Game is won at 21 points with a 2-point lead</li>
-                <li>At 20-20, you need to win by 2 points (22-20, 23-21, etc.)</li>
-                <li>At 29-29, first team to 30 points wins</li>
-                <li>Maximum possible score is 30 points</li>
-              </ul>
-            </div>
-            
-            {/* Winner Preview */}
-            {formData.team1Score && formData.team2Score && (
-              <div className="winner-preview">
-                <strong>Winner: {parseInt(formData.team1Score) > parseInt(formData.team2Score) ? team1.name : team2.name}</strong>
-                <span className="note">Match will be automatically marked as completed</span>
-              </div>
-            )}
-            
-            {errors.scores && <span className="error-text">{errors.scores}</span>}
-          </>
-        )}
+        {/* Badminton Scoring Rules */}
+        <div className="scoring-rules">
+          <h4>Badminton Scoring Rules:</h4>
+          <ul>
+            <li>Game is won at 21 points with a 2-point lead</li>
+            <li>At 20-20, you need to win by 2 points (22-20, 23-21, etc.)</li>
+            <li>At 29-29, first team to 30 points wins</li>
+            <li>Maximum possible score is 30 points</li>
+          </ul>
+        </div>
+
+        {/* Winner Preview */}
+        {formData.team1Score && formData.team2Score && (
+          <div className="winner-preview">
+            <strong>Winner: {parseInt(formData.team1Score) > parseInt(formData.team2Score) ? team1.name : team2.name}</strong>
+            <span className="note">Match will be automatically marked as completed</span>
       </div>
-    );
-  };
+        )}
+
+        {errors.scores && <span className="error-text">{errors.scores}</span>}
+      </div>
+  );
+};
 
   return (
     <form onSubmit={handleSubmit} className="enhanced-match-form">
@@ -480,7 +463,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
             <h3>Match Details</h3>
             
             <div className="form-group">
-              <label htmlFor="scheduledDate">Scheduled Date</label>
+              <label htmlFor="scheduledDate">Match Date (Optional)</label>
               <input
                 type="date"
                 id="scheduledDate"
@@ -490,24 +473,12 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
                 className={errors.scheduledDate ? 'error' : ''}
               />
               {errors.scheduledDate && <span className="error-text">{errors.scheduledDate}</span>}
+              <small className="form-help">
+                Leave blank to use current date. Date will be displayed in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+              </small>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="status">Status</label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                disabled={showScoreInput} // Disable if scores being entered as it will be set to completed
-              >
-                <option value="scheduled">Scheduled</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-            
-            {/* Score input option */}
+            {/* Always show score input - removed status selection */}
             {renderScoreInput()}
           </div>
         )}
@@ -523,13 +494,13 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
         <button type="button" onClick={onCancel} className="btn btn-secondary">
           Cancel
         </button>
-        <button 
-          type="submit" 
-          disabled={isSubmitting || !formData.team1Id || !formData.team2Id || selectedPlayers.size !== 4 || 
-                    (showScoreInput && (!formData.team1Score || !formData.team2Score))} 
+        <button
+          type="submit"
+          disabled={isSubmitting || !formData.team1Id || !formData.team2Id || selectedPlayers.size !== 4 ||
+                    !formData.team1Score || !formData.team2Score}
           className="btn btn-primary"
         >
-          {isSubmitting ? 'Creating...' : (match ? 'Update Match' : 'Create Match')}
+          {isSubmitting ? 'Creating Match...' : (match ? 'Update Match' : 'Create Match with Score')}
         </button>
       </div>
     </form>

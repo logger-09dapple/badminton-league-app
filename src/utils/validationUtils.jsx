@@ -13,9 +13,12 @@ export const validationUtils = {
       isValid = false;
     }
 
-    // NEW: Gender validation
+    // Enhanced gender validation
     if (!playerData.gender) {
       errors.gender = 'Gender is required';
+      isValid = false;
+    } else if (!['Male', 'Female', 'Other'].includes(playerData.gender)) {
+      errors.gender = 'Please select a valid gender option';
       isValid = false;
     }
 
@@ -41,9 +44,22 @@ export const validationUtils = {
       isValid = false;
     }
 
-    if (!teamData.playerIds || teamData.playerIds.length !== 2) {
+    if (teamData.name && teamData.name.trim().length > 50) {
+      errors.name = 'Team name must be less than 50 characters';
+      isValid = false;
+    }
+
+    if (!teamData.playerIds || !Array.isArray(teamData.playerIds) || teamData.playerIds.length !== 2) {
       errors.playerIds = 'A team must have exactly 2 players';
       isValid = false;
+    }
+
+    // Check for duplicate player IDs
+    if (teamData.playerIds && teamData.playerIds.length === 2) {
+      if (teamData.playerIds[0] === teamData.playerIds[1]) {
+        errors.playerIds = 'A player cannot be selected twice for the same team';
+        isValid = false;
+      }
     }
 
     return { isValid, errors };
@@ -67,23 +83,33 @@ export const validationUtils = {
       errors.teams = 'Teams must be different';
       isValid = false;
     }
+    
+    // Enhanced date validation with timezone handling
+    if (matchData.scheduledDate) {
+      const matchDate = new Date(matchData.scheduledDate);
+      const now = new Date();
+      
+      if (isNaN(matchDate.getTime())) {
+        errors.scheduledDate = 'Please enter a valid date';
+        isValid = false;
+      }
+    }
 
-    // Removed date validation - dates should be accepted regardless of timezone
     return { isValid, errors };
   },
 
-  // Validate badminton scores
+  // Enhanced badminton score validation
   validateBadmintonScore: (team1Score, team2Score) => {
     const errors = {};
     let isValid = true;
 
     // Basic validation
-    if (team1Score === '' || isNaN(team1Score)) {
+    if (team1Score === '' || team1Score === null || team1Score === undefined || isNaN(team1Score)) {
       errors.team1Score = 'Please enter a valid score for Team 1';
       isValid = false;
     }
 
-    if (team2Score === '' || isNaN(team2Score)) {
+    if (team2Score === '' || team2Score === null || team2Score === undefined || isNaN(team2Score)) {
       errors.team2Score = 'Please enter a valid score for Team 2';
       isValid = false;
     }
@@ -91,25 +117,39 @@ export const validationUtils = {
     // Skip other validations if basic checks fail
     if (!isValid) return { isValid, errors };
 
+    const score1 = parseInt(team1Score);
+    const score2 = parseInt(team2Score);
+
+    // Check for negative scores
+    if (score1 < 0 || score2 < 0) {
+      errors.scores = 'Scores cannot be negative';
+      isValid = false;
+    }
+
     // Badminton-specific score rules
     const maxPoints = 30;
-    if (team1Score > maxPoints || team2Score > maxPoints) {
+    if (score1 > maxPoints || score2 > maxPoints) {
       errors.scores = `Maximum score in badminton is ${maxPoints} points`;
       isValid = false;
     }
 
-    const winningScore = Math.max(team1Score, team2Score);
-    const losingScore = Math.min(team1Score, team2Score);
-
     // Check if game is complete according to badminton rules
-    if (!validationUtils.isGameComplete(team1Score, team2Score)) {
+    if (!validationUtils.isGameComplete(score1, score2)) {
       errors.scores = 'Invalid score: A badminton game must be won by 2 points, with at least 21 points (30 max)';
-          isValid = false;
-        }
+      isValid = false;
+    }
+
     return { isValid, errors };
   },
 
-  // Helper method to check if a game is complete
+  // Simple score validation for individual scores
+  validateScore: (score) => {
+    if (score === null || score === undefined || score === '') return false;
+    const numScore = parseInt(score);
+    return !isNaN(numScore) && numScore >= 0 && numScore <= 30;
+  },
+
+  // Enhanced game completion check
   isGameComplete: (score1, score2) => {
     const higher = Math.max(score1, score2);
     const lower = Math.min(score1, score2);
@@ -137,29 +177,78 @@ export const validationUtils = {
     return score1 > score2 ? 'team1' : 'team2';
   },
 
-  // Simplified score validation for basic checks
-  validateScore: (score) => {
-    return score >= 0 && score <= 30 && Number.isInteger(score);
+  // New: Validate tournament data
+  validateTournament: (tournamentData) => {
+    const errors = {};
+    let isValid = true;
+
+    if (!tournamentData.name || tournamentData.name.trim().length < 3) {
+      errors.name = 'Tournament name must be at least 3 characters long';
+      isValid = false;
+    }
+
+    if (!tournamentData.type || !['knockout', 'round_robin', 'swiss'].includes(tournamentData.type)) {
+      errors.type = 'Please select a valid tournament type';
+      isValid = false;
+    }
+
+    if (!tournamentData.startDate) {
+      errors.startDate = 'Start date is required';
+      isValid = false;
+    }
+
+    if (tournamentData.startDate) {
+      const startDate = new Date(tournamentData.startDate);
+      const now = new Date();
+      
+      if (startDate < now) {
+        errors.startDate = 'Start date cannot be in the past';
+        isValid = false;
+      }
+    }
+
+    if (!tournamentData.maxParticipants || tournamentData.maxParticipants < 4) {
+      errors.maxParticipants = 'Tournament must have at least 4 participants';
+      isValid = false;
+    }
+
+    return { isValid, errors };
   },
 
-  // Enhanced score update validation with badminton rules
-  validateScoreUpdate: (scoreData) => {
-    const team1Score = parseInt(scoreData.team1Score);
-    const team2Score = parseInt(scoreData.team2Score);
+  // New: Validate custom player fields
+  validateCustomField: (fieldData) => {
+    const errors = {};
+    let isValid = true;
 
-    return validationUtils.validateBadmintonScore(team1Score, team2Score);
+    if (!fieldData.name || fieldData.name.trim().length < 2) {
+      errors.name = 'Field name must be at least 2 characters long';
+      isValid = false;
+    }
+
+    if (!fieldData.type || !['text', 'number', 'email', 'phone', 'date', 'select'].includes(fieldData.type)) {
+      errors.type = 'Please select a valid field type';
+      isValid = false;
+    }
+
+    if (fieldData.type === 'select' && (!fieldData.options || fieldData.options.length < 2)) {
+      errors.options = 'Select fields must have at least 2 options';
+      isValid = false;
+    }
+
+    return { isValid, errors };
   }
 };
 
 // Helper functions
 function isValidEmail(email) {
-  // Simple email validation regex
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Enhanced email validation regex
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   return emailRegex.test(email);
 }
 
 function isValidPhone(phone) {
-  // Basic phone validation
-  const phoneRegex = /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/;
-  return phoneRegex.test(phone);
+  // Enhanced phone validation - supports international formats
+  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+  const cleanPhone = phone.replace(/[\s\-\(\)\.]/g, '');
+  return phoneRegex.test(cleanPhone) && cleanPhone.length >= 7;
 }

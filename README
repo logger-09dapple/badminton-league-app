@@ -243,3 +243,128 @@ This badminton league app provides a comprehensive solution for managing players
 Remember that the key to successful league management is consistent communication, fair play, and continuous improvement based on participant feedback. The app provides the tools, but your leadership and organization skills will make the league truly successful.
 
 Happy playing and good luck with your badminton league!
+
+
+#07/01/2025
+# Advanced Tournament Bracket System & Comprehensive Statistics Dashboard
+
+This document outlines the implementation of two major features for the Badminton League Manager:
+
+## 1. Advanced Tournament Bracket System
+
+### Overview
+A complete tournament management system with knockout bracket visualization, ELO-based seeding, and automatic progression.
+
+### Key Features
+
+#### Tournament Creation & Management
+- **Multiple Tournament Types**: Single elimination, double elimination, round robin
+- **Flexible Participants**: Support for both teams and individual players
+- **Configurable Sizes**: 4, 8, 16, or 32 participants
+- **ELO-Based Seeding**: Automatic seeding based on ELO ratings for competitive balance
+
+#### Bracket Visualization
+- **Interactive Bracket Display**: SVG-like visual representation of tournament structure
+- **Real-time Updates**: Live score updates and match progression
+- **Responsive Design**: Works on desktop and mobile devices
+- **Match Status Tracking**: Pending, completed, and waiting states
+
+#### Tournament Features
+- **Automatic Progression**: Winners automatically advance to next rounds
+- **Bye Handling**: Proper handling of uneven participant numbers
+- **Score Input**: Modal-based score entry system
+- **Champion Display**: Special display for tournament winners
+
+### Implementation Files
+
+#### Core Components
+- `src/components/TournamentBracket.jsx` - Main bracket visualization component
+- `src/pages/Tournaments.jsx` - Tournament management page
+- `src/styles/TournamentBracket.css` - Complete styling for brackets
+
+#### Database Schema
+- `database/tournament_schema.sql` - Database tables and relationships
+
+#### Key Functions
+- **Bracket Generation**: Automatic bracket structure creation
+- **Seeding Algorithm**: ELO-based participant seeding
+- **Match Progression**: Automatic advancement logic
+- **Score Management**: Match result handling
+
+### Usage Example
+
+```jsx
+<TournamentBracket
+  tournament={tournamentData}
+  participants={participantsList}
+  matches={matchesList}
+  onMatchUpdate={handleMatchUpdate}
+  onTournamentComplete={handleTournamentComplete}
+/>
+```
+
+## 2. Comprehensive Statistics Dashboard
+
+### Overview
+Enhanced analytics system with interactive charts, performance trends, and exportable insights.
+
+### Key Features
+
+#### Advanced Analytics
+- **Performance Trends**: Player and team performance over time
+- **ELO Distribution**: Visual representation of rating distributions
+- **Head-to-Head Analysis**: Detailed matchup statistics
+- **Competitiveness Index**: League balance and match closeness metrics
+
+#### Interactive Charts
+- **Multiple Chart Types**: Line charts, bar charts, doughnut charts
+- **Chart.js Integration**: Professional-grade visualizations
+- **Responsive Design**: Mobile-friendly chart displays
+- **Data Filtering**: Time-based and category filtering
+
+#### Comprehensive Reporting
+- **Exportable Reports**: JSON format data export
+- **League Health Metrics**: Competitiveness and balance indicators
+- **Skill Distribution**: Visual skill level analysis
+- **Performance Insights**: Automated insights and recommendations
+
+### Implementation Files
+
+#### Core Components
+- `src/components/ChartsAndGraphs.jsx` - Chart rendering component
+- `src/utils/analyticsUtils.js` - Analytics calculation utilities
+- `src/pages/Statistics.jsx` - Enhanced statistics page (updated)
+- `src/styles/Charts.css` - Chart styling and responsive design
+
+#### Chart Types
+- **Performance Trends**: Line charts showing win rates and averages over time
+- **ELO Distribution**: Bar charts showing rating ranges
+- **Skill Distribution**: Doughnut charts showing skill level breakdown
+- **Head-to-Head**: Comparison charts for player/team matchups
+- **Competitiveness**: League health and balance metrics
+
+### Usage Example
+
+```jsx
+<ChartsAndGraphs
+  type="performance"
+  performanceTrends={trendsData}
+  eloDistribution={eloData}
+  skillDistribution={skillData}
+  headToHeadData={h2hData}
+  competitivenessData={compData}
+/>
+```
+
+## Installation & Setup
+
+### 1. Install Dependencies
+```bash
+npm install chart.js react-chartjs-2
+```
+
+### 2. Database Setup
+Execute the SQL schema from `database/tournament_schema.sql` in your Supabase database.
+
+### 3. Environment Variables
+Ensure your `.env` file includes:

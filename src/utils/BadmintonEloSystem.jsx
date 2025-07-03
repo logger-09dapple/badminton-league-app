@@ -1,5 +1,4 @@
-
-// Comprehensive ELO Rating System for Badminton League
+// Comprehensive ELO Rating System for Badminton League with Enhanced Error Handling
 export class BadmintonEloSystem {
   constructor(options = {}) {
     // ELO configuration optimized for badminton [15]
@@ -20,169 +19,433 @@ export class BadmintonEloSystem {
       newPlayer: 1.5,    // New players need faster adjustment
       experienced: 0.8,   // Experienced players need stability
       provisional: 2.0,   // Provisional ratings adjust quickly
-      highRated: 0.6     // High rated players change slowly
+      highRated: 0.6     // High-rated players change slowly
     };
   }
 
-  // Calculate expected score using standard ELO formula [12]
-  calculateExpectedScore(ratingA, ratingB) {
+  /**
+   * Validate player data for ELO calculation
+   */
+  validatePlayerData(players) {
+    const errors = [];
+
+    if (!Array.isArray(players)) {
+      errors.push('Players must be an array');
+      return { isValid: false, errors };
+    }
+
+    if (players.length === 0) {
+      errors.push('At least one player is required');
+      return { isValid: false, errors };
+    }
+
+    players.forEach((player, index) => {
+      if (!player) {
+        errors.push(`Player at index ${index} is null or undefined`);
+        return;
+      }
+
+      if (!player.id) {
+        errors.push(`Player at index ${index} missing ID`);
+      }
+
+      if (!player.name) {
+        errors.push(`Player at index ${index} missing name`);
+      }
+
+      if (typeof player.elo_rating !== 'number' || isNaN(player.elo_rating)) {
+        errors.push(`Player ${player.name || index} has invalid ELO rating`);
+      }
+      if (player.elo_rating < this.minRating || player.elo_rating > this.maxRating) {
+        errors.push(`Player ${player.name || index} ELO rating out of valid range`);
+      }
+    });
+
+    return { isValid: errors.length === 0, errors };
+  }
+
+  /**
+   * Validate match scores
+   */
+  validateMatchScores(team1Score, team2Score) {
+    const errors = [];
+
+    if (typeof team1Score !== 'number' || isNaN(team1Score)) {
+      errors.push('Team 1 score must be a valid number');
+    }
+
+    if (typeof team2Score !== 'number' || isNaN(team2Score)) {
+      errors.push('Team 2 score must be a valid number');
+    }
+
+    if (team1Score < 0 || team2Score < 0) {
+      errors.push('Scores cannot be negative');
+    }
+
+    if (team1Score > 30 || team2Score > 30) {
+      errors.push('Scores cannot exceed 30 (badminton maximum)');
+    }
+
+    // Check for valid badminton score completion
+    const higher = Math.max(team1Score, team2Score);
+    const lower = Math.min(team1Score, team2Score);
+
+    if (higher < 21) {
+      errors.push('Match not complete - winner must have at least 21 points');
+    } else if (higher < 30 && (higher - lower) < 2) {
+      errors.push('Match not complete - winner must win by at least 2 points');
+    } else if (higher === 30 && lower !== 29) {
+      errors.push('Invalid score - at 30 points, opponent must have 29 points');
+    }
+
+    return { isValid: errors.length === 0, errors };
+  }
+
+  /**
+   * Safely get player ELO rating with fallback
+   */
+  getPlayerEloRating(player) {
     try {
-      const exponent = (ratingB - ratingA) / 400;
-      return 1 / (1 + Math.pow(10, exponent));
+      if (!player) return this.initialRating;
+
+      const rating = player.elo_rating;
+
+      if (typeof rating === 'number' && !isNaN(rating) && rating >= this.minRating && rating <= this.maxRating) {
+        return rating;
+      }
+
+      console.warn(`Invalid ELO rating for player ${player.name || player.id}: ${rating}, using initial rating`);
+      return this.initialRating;
+  } catch (error) {
+      console.error('Error getting player ELO rating:', error);
+      return this.initialRating;
+  }
+}
+	
+  /**
+   * Calculate expected score with error handling
+   */
+  calculateExpectedScore(playerRating, opponentRating) {
+    try {
+      if (typeof playerRating !== 'number' || typeof opponentRating !== 'number') {
+        throw new Error('Ratings must be numbers');
+      }
+
+      if (isNaN(playerRating) || isNaN(opponentRating)) {
+        throw new Error('Ratings cannot be NaN');
+      }
+
+      const ratingDiff = opponentRating - playerRating;
+      const expectedScore = 1 / (1 + Math.pow(10, ratingDiff / 400));
+
+      // Ensure result is between 0 and 1
+      return Math.max(0, Math.min(1, expectedScore));
     } catch (error) {
       console.error('Error calculating expected score:', error);
-      return 0.5; // Default to 50-50 if error occurs
+      return 0.5; // Fallback to 50% expected score
     }
   }
 
-  // Calculate new ELO rating after a match [12]
-  calculateNewRating(currentRating, opponentRating, actualScore, kFactor = null) {
+  /**
+   * Get K-factor with adjustments and error handling
+   */
+  getKFactor(player) {
     try {
-      const k = kFactor || this.kFactor;
-      const expectedScore = this.calculateExpectedScore(currentRating, opponentRating);
-      const ratingChange = k * (actualScore - expectedScore);
-      const newRating = Math.round(currentRating + ratingChange);
-      
-      // Ensure rating stays within bounds
+      if (!player) return this.kFactor;
+    const gamesPlayed = player.elo_games_played || 0;
+      const rating = this.getPlayerEloRating(player);
+
+      let kFactor = this.kFactor;
+      // Adjust K-factor based on experience
+    if (gamesPlayed < 10) {
+        kFactor *= this.kFactorAdjustments.provisional;
+      } else if (gamesPlayed < 30) {
+        kFactor *= this.kFactorAdjustments.newPlayer;
+      } else if (rating > 2000) {
+      kFactor *= this.kFactorAdjustments.highRated;
+      } else if (gamesPlayed > 100) {
+        kFactor *= this.kFactorAdjustments.experienced;
+    }
+
+      return Math.max(8, Math.min(64, kFactor)); // Clamp between 8 and 64
+    } catch (error) {
+      console.error('Error calculating K-factor:', error);
+      return this.kFactor;
+  }
+  }
+
+  /**
+   * Calculate new ELO rating with comprehensive error handling - FIXED to ensure integers
+   */
+  calculateNewRating(currentRating, expectedScore, actualScore, kFactor) {
+    try {
+      if (typeof currentRating !== 'number' || isNaN(currentRating)) {
+        throw new Error('Current rating must be a valid number');
+      }
+
+      if (typeof expectedScore !== 'number' || isNaN(expectedScore)) {
+        throw new Error('Expected score must be a valid number');
+      }
+
+      if (typeof actualScore !== 'number' || isNaN(actualScore)) {
+        throw new Error('Actual score must be a valid number');
+      }
+
+      if (typeof kFactor !== 'number' || isNaN(kFactor)) {
+        throw new Error('K-factor must be a valid number');
+      }
+
+      const ratingChange = kFactor * (actualScore - expectedScore);
+      const newRating = currentRating + ratingChange;
+
+      // Clamp rating within valid range and ENSURE INTEGER
+      const clampedRating = Math.max(this.minRating, Math.min(this.maxRating, newRating));
+
       return {
-        newRating: Math.max(this.minRating, Math.min(this.maxRating, newRating)),
-        ratingChange: Math.round(ratingChange),
-        expectedScore: expectedScore
+        newRating: Math.round(clampedRating), // CRITICAL: Always return integer
+        ratingChange: Math.round(ratingChange), // CRITICAL: Always return integer
+        expectedScore: Math.round(expectedScore * 1000) / 1000, // Keep precision for calculations but not for storage
+        actualScore,
+        kFactor: Math.round(kFactor) // CRITICAL: Always return integer
       };
     } catch (error) {
       console.error('Error calculating new rating:', error);
       return {
-        newRating: currentRating,
+        newRating: Math.round(currentRating || this.initialRating), // CRITICAL: Always return integer
         ratingChange: 0,
-        expectedScore: 0.5
+        expectedScore: 0.5,
+        actualScore: 0.5,
+        kFactor: Math.round(this.kFactor) // CRITICAL: Always return integer
       };
     }
   }
 
-// Enhanced processMatchResult with validation
-processMatchResult(team1Players, team2Players, team1Score, team2Score) {
-  try {
-    console.log('Processing match result with players:', {
-      team1Count: team1Players?.length || 0,
-      team2Count: team2Players?.length || 0,
-      team1Players: team1Players?.map(p => ({ id: p?.id, name: p?.name, elo: p?.elo_rating })),
-      team2Players: team2Players?.map(p => ({ id: p?.id, name: p?.name, elo: p?.elo_rating }))
-    });
+  /**
+   * Determine skill level based on ELO rating
+   */
+  getSkillLevelFromElo(eloRating) {
+    try {
+      const rating = typeof eloRating === 'number' ? eloRating : this.initialRating;
 
-    // Validate input parameters
-    if (!Array.isArray(team1Players) || !Array.isArray(team2Players)) {
-      throw new Error('Player arrays are invalid');
+      for (const [level, range] of Object.entries(this.skillThresholds)) {
+        if (rating >= range.min && rating <= range.max) {
+          return level;
+        }
+      }
+
+      return 'Intermediate'; // Fallback
+    } catch (error) {
+      console.error('Error determining skill level:', error);
+      return 'Intermediate';
     }
+  }
 
-    if (team1Players.length !== 2 || team2Players.length !== 2) {
-      throw new Error(`Invalid team sizes: Team1 has ${team1Players.length}, Team2 has ${team2Players.length}. Expected 2 each.`);
-    }
+  /**
+   * Process match result with comprehensive error handling and validation
+   */
+  processMatchResult(team1Players, team2Players, team1Score, team2Score) {
+    try {
+      console.log('Processing match result with error handling');
 
-    // Validate each player has required properties
-    const validatePlayer = (player, teamName, index) => {
-      if (!player) {
-        throw new Error(`${teamName} player ${index + 1} is null/undefined`);
+      // Validate inputs
+      const team1Validation = this.validatePlayerData(team1Players);
+      if (!team1Validation.isValid) {
+        throw new Error(`Team 1 validation failed: ${team1Validation.errors.join(', ')}`);
       }
-      if (!player.id) {
-        throw new Error(`${teamName} player ${index + 1} missing ID`);
-      }
-      if (!player.name) {
-        throw new Error(`${teamName} player ${index + 1} missing name`);
-      }
-      // Ensure ELO properties exist
-      player.elo_rating = player.elo_rating || this.initialRating;
-      player.elo_games_played = player.elo_games_played || 0;
-      player.peak_elo_rating = player.peak_elo_rating || player.elo_rating;
-      
-      return player;
-    };
 
-    // Validate and normalize all players
-    const validatedTeam1 = team1Players.map((player, index) => 
-      validatePlayer(player, 'Team1', index)
-    );
+      const team2Validation = this.validatePlayerData(team2Players);
+      if (!team2Validation.isValid) {
+        throw new Error(`Team 2 validation failed: ${team2Validation.errors.join(', ')}`);
+      }
+
+      const scoreValidation = this.validateMatchScores(team1Score, team2Score);
+      if (!scoreValidation.isValid) {
+        throw new Error(`Score validation failed: ${scoreValidation.errors.join(', ')}`);
+      }
+
+      // Calculate team averages safely
+      const team1AvgRating = this.calculateTeamAverageRating(team1Players);
+      const team2AvgRating = this.calculateTeamAverageRating(team2Players);
+
+      const team1Won = team1Score > team2Score;
+      const eloUpdates = [];
     
-    const validatedTeam2 = team2Players.map((player, index) => 
-      validatePlayer(player, 'Team2', index)
-    );
+      // Process each player with error handling
+      const allPlayers = [...team1Players, ...team2Players];
 
-    const updates = [];
-    const team1Result = team1Score > team2Score ? 1 : 0;
-    const team2Result = 1 - team1Result;
+      for (let i = 0; i < allPlayers.length; i++) {
+        const player = allPlayers[i];
+        try {
+          if (!player || !player.id) {
+            console.warn(`Skipping invalid player at index ${i}`);
+            continue;
+          }
+          const isTeam1 = team1Players.some(p => p.id === player.id);
+          const playerWon = isTeam1 ? team1Won : !team1Won;
+          const opponentAvgRating = isTeam1 ? team2AvgRating : team1AvgRating;
 
-    // Calculate average team ratings
-    const team1AvgRating = this.calculateTeamAverageRating(validatedTeam1);
-    const team2AvgRating = this.calculateTeamAverageRating(validatedTeam2);
+          const currentRating = this.getPlayerEloRating(player);
+          const expectedScore = this.calculateExpectedScore(currentRating, opponentAvgRating);
+          const actualScore = playerWon ? 1 : 0;
+          const kFactor = this.getKFactor(player);
 
-    console.log('Team average ratings:', { team1AvgRating, team2AvgRating });
+          const ratingResult = this.calculateNewRating(currentRating, expectedScore, actualScore, kFactor);
+          const newSkillLevel = this.getSkillLevelFromElo(ratingResult.newRating);
 
-    // Process each player in team 1
-    validatedTeam1.forEach(player => {
-      const kFactor = this.calculateAdjustedKFactor(player);
-      const result = this.calculateNewRating(
-        player.elo_rating, 
-        team2AvgRating, 
-        team1Result, 
-        kFactor
-      );
-      
-      updates.push({
-        playerId: player.id,
-        oldRating: player.elo_rating,
-        newRating: result.newRating,
-        ratingChange: result.ratingChange,
-        oldSkillLevel: player.skill_level,
-        newSkillLevel: this.determineSkillLevel(result.newRating),
-        opponentAvgRating: team2AvgRating,
-        kFactor: kFactor,
-        expectedScore: result.expectedScore,
-        oldPeakRating: player.peak_elo_rating,
-        oldGamesPlayed: player.elo_games_played
-      });
+          eloUpdates.push({
+          playerId: player.id,
+            playerName: player.name || 'Unknown',
+            oldRating: currentRating,
+            newRating: ratingResult.newRating,
+            ratingChange: ratingResult.ratingChange,
+            oldSkillLevel: player.skill_level || this.getSkillLevelFromElo(currentRating),
+            newSkillLevel: newSkillLevel,
+            expectedScore: ratingResult.expectedScore,
+            actualScore: ratingResult.actualScore,
+            kFactor: ratingResult.kFactor,
+            opponentAvgRating,
+            won: playerWon
+        });
+        } catch (playerError) {
+          console.error(`Error processing player ${player?.name || player?.id || 'unknown'}:`, playerError);
+          // Add a default update to prevent system failure
+          eloUpdates.push({
+            playerId: player?.id || `unknown-${i}`,
+            playerName: player?.name || 'Unknown',
+            oldRating: this.getPlayerEloRating(player),
+            newRating: this.getPlayerEloRating(player),
+            ratingChange: 0,
+            oldSkillLevel: player?.skill_level || 'Intermediate',
+            newSkillLevel: player?.skill_level || 'Intermediate',
+            expectedScore: 0.5,
+            actualScore: 0.5,
+            kFactor: this.kFactor,
+            opponentAvgRating: this.initialRating,
+            won: false,
+            error: playerError.message
     });
+  }
+      }
+      console.log('ELO processing completed successfully');
+      return eloUpdates;
 
-    // Process each player in team 2
-    validatedTeam2.forEach(player => {
-      const kFactor = this.calculateAdjustedKFactor(player);
-      const result = this.calculateNewRating(
-        player.elo_rating, 
-        team1AvgRating, 
-        team2Result, 
-        kFactor
+    } catch (error) {
+      console.error('Critical error in ELO processing:', error);
+      // Return empty updates to prevent system crash
+      return [];
+    }
+  }
+
+  /**
+   * Calculate team average rating with error handling - FIXED to return integers
+   */
+  calculateTeamAverageRating(teamPlayers) {
+    try {
+      if (!Array.isArray(teamPlayers) || teamPlayers.length === 0) {
+        return this.initialRating;
+      }
+
+      const validRatings = teamPlayers
+        .map(player => this.getPlayerEloRating(player))
+        .filter(rating => typeof rating === 'number' && !isNaN(rating));
+
+      if (validRatings.length === 0) {
+        return this.initialRating;
+      }
+
+      const avgRating = validRatings.reduce((sum, rating) => sum + rating, 0) / validRatings.length;
+      return Math.round(avgRating); // CRITICAL: Always return integer
+    } catch (error) {
+      console.error('Error calculating team average rating:', error);
+      return this.initialRating;
+    }
+  }
+
+  /**
+   * Generate skill level recommendations with error handling
+   */
+  generateSkillLevelRecommendations(players) {
+    try {
+      if (!Array.isArray(players)) {
+        console.warn('Players must be an array for recommendations');
+        return [];
+      }
+
+      return players
+        .filter(player => {
+          try {
+            return player &&
+                   player.id &&
+                   typeof player.elo_rating === 'number' &&
+                   !isNaN(player.elo_rating) &&
+                   (player.elo_games_played || 0) >= 10; // Minimum games for recommendation
+          } catch (error) {
+            console.warn(`Error filtering player for recommendations: ${error.message}`);
+            return false;
+          }
+        })
+        .map(player => {
+          try {
+            const currentSkill = player.skill_level || 'Intermediate';
+            const recommendedSkill = this.getSkillLevelFromElo(player.elo_rating);
+
+            if (currentSkill !== recommendedSkill) {
+              const confidence = this.calculateRecommendationConfidence(player);
+
+              return {
+                playerId: player.id,
+                playerName: player.name,
+                currentSkill,
+                recommendedSkill,
+                eloRating: player.elo_rating,
+                confidence,
+                gamesPlayed: player.elo_games_played || 0
+              };
+            }
+            return null;
+          } catch (error) {
+            console.warn(`Error generating recommendation for player ${player.name}: ${error.message}`);
+            return null;
+          }
+        })
+        .filter(Boolean);
+    } catch (error) {
+      console.error('Error generating skill level recommendations:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Calculate recommendation confidence
+   */
+  calculateRecommendationConfidence(player) {
+    try {
+      const gamesPlayed = player.elo_games_played || 0;
+    const rating = player.elo_rating || this.initialRating;
+    
+      // Base confidence on games played
+      let confidence = Math.min(100, (gamesPlayed / 20) * 100);
+    
+      // Adjust based on how far from threshold
+      const currentSkill = player.skill_level || 'Intermediate';
+      const currentThreshold = this.skillThresholds[currentSkill];
+      if (currentThreshold) {
+      const distanceFromThreshold = Math.min(
+          Math.abs(rating - currentThreshold.min),
+          Math.abs(rating - currentThreshold.max)
       );
-      
-      updates.push({
-        playerId: player.id,
-        oldRating: player.elo_rating,
-        newRating: result.newRating,
-        ratingChange: result.ratingChange,
-        oldSkillLevel: player.skill_level,
-        newSkillLevel: this.determineSkillLevel(result.newRating),
-        opponentAvgRating: team1AvgRating,
-        kFactor: kFactor,
-        expectedScore: result.expectedScore,
-        oldPeakRating: player.peak_elo_rating,
-        oldGamesPlayed: player.elo_games_played
-      });
-    });
 
-    console.log('Generated ELO updates:', updates);
-    return updates;
-  } catch (error) {
-    console.error('Error processing match result:', error);
-    return [];
+        // Higher confidence if further from threshold boundaries
+        const thresholdFactor = Math.min(100, distanceFromThreshold);
+        confidence = (confidence + thresholdFactor) / 2;
+    }
+    
+      return Math.round(Math.max(0, Math.min(100, confidence)));
+    } catch (error) {
+      console.error('Error calculating recommendation confidence:', error);
+      return 50; // Default confidence
   }
 }
-	
-  // Calculate team average rating for doubles [20]
-  calculateTeamAverageRating(players) {
-    if (!players || players.length === 0) return this.initialRating;
-    
-    const totalRating = players.reduce((sum, player) => 
-      sum + (player.elo_rating || this.initialRating), 0
-    );
-    return Math.round(totalRating / players.length);
-  }
 
   // Determine skill level based on ELO rating [21]
   determineSkillLevel(rating) {
@@ -216,56 +479,7 @@ processMatchResult(team1Players, team2Players, team1Score, team2Score) {
 
     return Math.max(16, Math.min(64, Math.round(kFactor)));
   }
-
-  // Generate skill level recommendations based on ELO ratings
-  generateSkillLevelRecommendations(players) {
-    const recommendations = [];
-    
-    players.forEach(player => {
-      const currentSkill = player.skill_level;
-      const recommendedSkill = this.determineSkillLevel(player.elo_rating || this.initialRating);
-      
-      if (currentSkill !== recommendedSkill) {
-        recommendations.push({
-          playerId: player.id,
-          playerName: player.name,
-          currentSkill: currentSkill,
-          recommendedSkill: recommendedSkill,
-          eloRating: player.elo_rating || this.initialRating,
-          confidence: this.calculateRecommendationConfidence(player)
-        });
-      }
-    });
-    
-    return recommendations;
-  }
-
-  // Calculate confidence level for skill recommendations
-  calculateRecommendationConfidence(player) {
-    const gamesPlayed = player.elo_games_played || 0;
-    const rating = player.elo_rating || this.initialRating;
-    
-    // More games = higher confidence
-    let confidence = Math.min(100, gamesPlayed * 5);
-    
-    // Ratings far from thresholds = higher confidence
-    const skillThreshold = this.skillThresholds[player.skill_level];
-    if (skillThreshold) {
-      const distanceFromThreshold = Math.min(
-        Math.abs(rating - skillThreshold.min),
-        Math.abs(rating - skillThreshold.max)
-      );
-      confidence += Math.min(30, distanceFromThreshold / 10);
-    }
-    
-    return Math.min(100, Math.round(confidence));
-  }
 }
 
-// Export configured instance for badminton
-export const badmintonEloSystem = new BadmintonEloSystem({
-  kFactor: 32,
-  initialRating: 1500,
-  minRating: 800,
-  maxRating: 2800
-});
+// Create singleton instance with error handling
+export const badmintonEloSystem = new BadmintonEloSystem();

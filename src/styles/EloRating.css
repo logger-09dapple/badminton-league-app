@@ -1,0 +1,208 @@
+/* ELO Rating Styling */
+.elo-rating {
+  font-weight: 600 !important;
+  color: #7c3aed !important;
+  font-size: 0.95rem !important;
+  padding: 0.2rem 0.4rem;
+  background-color: #f3e8ff;
+  border-radius: 0.25rem;
+  border: 1px solid #e9d5ff;
+  white-space: nowrap;
+}
+
+/* Performance Chart Notice */
+.performance-chart-notice {
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #0369a1;
+}
+
+.performance-chart-notice p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* Player Rankings Table Adjustments */
+.rankings-table .table-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 80px 80px 70px 70px 60px 70px 70px;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.2s ease;
+  min-height: 60px;
+}
+
+.rankings-table .table-header {
+  display: grid;
+  grid-template-columns: 60px 1fr 80px 80px 70px 70px 60px 70px 70px;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 1rem 0.75rem;
+  background-color: #f8fafc;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+/* Team Rankings Table Adjustments */
+.rankings-table .table-row.team-row {
+  grid-template-columns: 60px 1fr 80px 80px 70px 70px 60px 70px;
+}
+
+.rankings-table .table-header.team-header {
+  grid-template-columns: 60px 1fr 80px 80px 70px 70px 60px 70px;
+}
+
+/* Responsive column sizing */
+.col-rank {
+  justify-self: center;
+}
+
+.col-player, .col-team {
+  min-width: 0; /* Allow text truncation */
+}
+
+.col-stat {
+  justify-self: center;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+.col-skill {
+  justify-self: center;
+  text-align: center;
+}
+
+/* Player/Team Info */
+.player-info, .team-info {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.player-name, .team-name {
+  font-size: 0.95rem !important;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.team-players {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.1rem;
+}
+
+/* Skill badges */
+.skill-badge, .skill-combo {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Stat values */
+.stat-value {
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+/* Icons in player names */
+.top-player, .top-team {
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+/* Rank display */
+.rank-display {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+.rank-number {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.rank-icon {
+  flex-shrink: 0;
+}
+
+.rank-icon.gold {
+  color: #fbbf24;
+}
+
+.rank-icon.silver {
+  color: #9ca3af;
+}
+
+.rank-icon.bronze {
+  color: #d97706;
+}
+
+/* ELO Rating Column Header */
+.table-header .col-stat:nth-child(4) {
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+/* ELO Rating trends in charts */
+.elo-trend-positive {
+  color: #10b981;
+}
+
+.elo-trend-negative {
+  color: #ef4444;
+}
+
+.elo-trend-neutral {
+  color: #6b7280;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .player-name, .team-name {
+    font-size: 0.875rem !important;
+  }
+  
+  .elo-rating {
+    font-size: 0.8rem !important;
+    padding: 0.15rem 0.3rem;
+  }
+  
+  .stat-value {
+    font-size: 0.8rem;
+  }
+  
+  .rankings-table .table-row,
+  .rankings-table .table-header {
+    grid-template-columns: 50px 1fr 60px 70px 50px 50px 40px 60px 50px;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .rankings-table .table-row.team-row,
+  .rankings-table .table-header.team-header {
+    grid-template-columns: 50px 1fr 60px 70px 50px 50px 40px 60px;
+  }
+}

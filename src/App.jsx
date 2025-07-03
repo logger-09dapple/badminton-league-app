@@ -8,20 +8,24 @@ import Players from './pages/Players';
 import Teams from './pages/Teams';
 import Matches from './pages/Matches';
 import Statistics from './pages/Statistics';
-import EloStatistics from './components/EloStatistics';
+import Tournaments from './pages/Tournaments';
 import './App.css';
 import './styles/MobileResponsive.css';
 import './styles/ScrollFix.css';
 import './styles/SimpleHeader.css';
+import './styles/NavigationFix.css';
+import './styles/EloRating.css';
 import './styles/MobileStatistics.css';
-import './styles/EloMobileStyles.css'; // Import ELO-specific mobile styles
+import './styles/EloMobileStyles.css';
+import './styles/Charts.css';
+import './styles/TournamentBracket.css';
 
 function App() {
   return (
     <LeagueProvider>
       <HashRouter>
         <div className="App">
-          <SimpleHeader /> {/* Use the simple header */}
+          <SimpleHeader />
           <main className="main-content">
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -30,7 +34,7 @@ function App() {
               <Route path="/teams" element={<Teams />} />
               <Route path="/matches" element={<Matches />} />
               <Route path="/statistics" element={<Statistics />} />
-	      <Route path="/elo-statistics" element={<EloStatistics />} />	  
+              <Route path="/tournaments" element={<Tournaments />} />
             </Routes>
           </main>
         </div>

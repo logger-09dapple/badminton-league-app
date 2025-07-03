@@ -777,8 +777,8 @@ async updatePlayerEloRating(playerId, eloData) {
     const { data, error } = await supabase
       .from('players')
       .update({
-        elo_rating: eloData.newRating,
-        peak_elo_rating: Math.max(eloData.newRating, eloData.oldPeakRating || 0),
+        elo_rating: Math.round(eloData.newRating),
+        peak_elo_rating: Math.max(Math.round(eloData.newRating), eloData.oldPeakRating || 0),
         skill_level: eloData.newSkillLevel,
         elo_games_played: (eloData.oldGamesPlayed || 0) + 1,
         updated_at: new Date().toISOString()
@@ -1041,8 +1041,8 @@ async processPlayerUpdate(update, currentPlayer, matchId, wasAlreadyCompleted, h
     const { error: playerError } = await supabase
       .from('players')
       .update({
-        elo_rating: update.newRating,
-        peak_elo_rating: Math.max(update.newRating, currentPlayer.peak_elo_rating),
+        elo_rating: Math.round(update.newRating), // FIXED: Round to integer
+        peak_elo_rating: Math.max(Math.round(update.newRating), currentPlayer.peak_elo_rating), // FIXED: Round to integer
         skill_level: update.newSkillLevel,
         elo_games_played: newEloGamesPlayed,
         matches_played: newMatchesPlayed,
@@ -1061,12 +1061,12 @@ async processPlayerUpdate(update, currentPlayer, matchId, wasAlreadyCompleted, h
     historyRecords.push({
       player_id: update.playerId,
       match_id: matchId,
-      old_rating: update.oldRating,
-      new_rating: update.newRating,
-      rating_change: update.ratingChange,
+      old_rating: Math.round(update.oldRating), // FIXED: Round to integer
+      new_rating: Math.round(update.newRating), // FIXED: Round to integer
+      rating_change: Math.round(update.ratingChange), // FIXED: Round to integer
       old_skill_level: update.oldSkillLevel,
       new_skill_level: update.newSkillLevel,
-      opponent_avg_rating: update.opponentAvgRating,
+      opponent_avg_rating: Math.round(update.opponentAvgRating), // FIXED: Round to integer
       k_factor: update.kFactor
     });
 
@@ -1076,7 +1076,7 @@ async processPlayerUpdate(update, currentPlayer, matchId, wasAlreadyCompleted, h
         player_id: update.playerId,
         old_skill_level: update.oldSkillLevel,
         new_skill_level: update.newSkillLevel,
-        elo_rating: update.newRating,
+        elo_rating: Math.round(update.newRating),
         reason: wasAlreadyCompleted ? 'Score correction ELO update' : 'Match completion ELO update',
         auto_applied: true
       });
