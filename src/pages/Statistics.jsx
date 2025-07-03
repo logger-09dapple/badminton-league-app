@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useCallback, useMemo } from 're
 import { useLeague } from '../context/LeagueContext';
 import StatsCard from '../components/StatsCard';
 import ChartsAndGraphs from '../components/ChartsAndGraphs';
+import MobileRankingCard from '../components/MobileRankingCard';
 import { analyticsUtils } from '../utils/analyticsUtils';
 import '../styles/Statistics.css'; // Import the new CSS file
 import { 
@@ -589,61 +590,15 @@ const Statistics = () => {
             ) : (
               <div className="table-body">
                 {playerStats.map((player) => (
-                  <div
+                  <MobileRankingCard
                     key={player.id}
-                    className={`table-row ${selectedPlayer === player.id ? 'selected' : ''}`}
+                    item={player}
+                    type="player"
+                    isSelected={selectedPlayer === player.id}
                     onClick={() => setSelectedPlayer(player.id === selectedPlayer ? null : player.id)}
-                  >
-                    <div className="col-rank">
-                      <div className="rank-display">
-                        {player.rank <= 3 && (
-                          <Medal 
-                            className={`rank-icon ${
-                              player.rank === 1 ? 'gold' : 
-                              player.rank === 2 ? 'silver' : 'bronze'
-                            }`}
-                            size={16}
-                          />
-                        )}
-                        <span className="rank-number">#{player.rank}</span>
-                      </div>
-                    </div>
-                    <div className="col-player">
-                      <div className="player-info">
-                        <div className="player-name">
-                          {player.name}
-                          {player.rank <= 3 && (
-                            <Star className="top-player" size={14} />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-skill">
-                      <span className={`skill-badge skill-${player.skill_level}`}>
-                        {player.skill_level || 'N/A'}
-                      </span>
-                    </div>
-                    <div className="col-stat" data-label="ELO">
-                      <span className="stat-value elo-rating">{player.eloRating}</span>
-                    </div>
-                    <div className="col-stat" data-label="Points">
-                      <span className="stat-value">{player.points || 0}</span>
-                    </div>
-                    <div className="col-stat" data-label="Matches">
-                      <span className="stat-value">{player.matches_played || 0}</span>
-                    </div>
-                    <div className="col-stat" data-label="Wins">
-                      <span className="stat-value">{player.matches_won || 0}</span>
-                    </div>
-                    <div className="col-stat" data-label="Win Rate">
-                      <span className="stat-value">{player.winRate}%</span>
-                    </div>
-                    <div className="col-stat" data-label="Form">
-                      <span className="stat-value">{player.recentForm}</span>
-                    </div>
-                  </div>
+                  />
                 ))}
-              </div>
+    </div>
             )}
           </div>
         </div>
@@ -699,57 +654,13 @@ const Statistics = () => {
             ) : (
               <div className="table-body">
                 {teamStats.map((team) => (
-                  <div
+                  <MobileRankingCard
                     key={team.id}
-                    className={`table-row team-row ${selectedTeam === team.id ? 'selected' : ''}`}
+                    item={team}
+                    type="team"
+                    isSelected={selectedTeam === team.id}
                     onClick={() => setSelectedTeam(team.id === selectedTeam ? null : team.id)}
-                  >
-                    <div className="col-rank">
-                      <div className="rank-display">
-                        {team.rank <= 3 && (
-                          <Medal 
-                            className={`rank-icon ${
-                              team.rank === 1 ? 'gold' : 
-                              team.rank === 2 ? 'silver' : 'bronze'
-                            }`}
-                            size={16}
-                          />
-                        )}
-                        <span className="rank-number">#{team.rank}</span>
-                      </div>
-                    </div>
-                    <div className="col-team">
-                      <div className="team-info">
-                        <div className="team-name">
-                          {team.name}
-                          {team.rank <= 3 && (
-                            <Star className="top-team" size={14} />
-                          )}
-                        </div>
-                        <div className="team-players">{team.playerNames}</div>
-                      </div>
-                    </div>
-                    <div className="col-skill">
-                      <span className="skill-combo">
-                        {team.skill_combination || 'N/A'}
-                      </span>
-                    </div>
-                    <div className="col-stat" data-label="Team ELO">
-                      <span className="stat-value elo-rating">{team.teamEloRating}</span>
-                    </div>
-                    <div className="col-stat" data-label="Points">
-                      <span className="stat-value">{team.points || 0}</span>
-                    </div>
-                    <div className="col-stat" data-label="Matches">
-                      <span className="stat-value">{team.matches_played || 0}</span>
-                    </div>
-                    <div className="col-stat" data-label="Wins">
-                      <span className="stat-value">{team.matches_won || 0}</span>
-                    </div>
-                    <div className="col-stat" data-label="Win Rate">
-                      <span className="stat-value">{team.winRate}%</span>
-                    </div>
-                  </div>
+                  />
                 ))}
               </div>
             )}
