@@ -1,4 +1,6 @@
 // Comprehensive ELO Rating System for Badminton League with Enhanced Error Handling
+import { teamEloSystem } from './TeamEloSystem';
+
 export class BadmintonEloSystem {
   constructor(options = {}) {
     // ELO configuration optimized for badminton [15]
@@ -242,10 +244,11 @@ export class BadmintonEloSystem {
 
   /**
    * Process match result with comprehensive error handling and validation
+   * Now includes team ELO processing
    */
-  processMatchResult(team1Players, team2Players, team1Score, team2Score) {
+  processMatchResult(team1Players, team2Players, team1Score, team2Score, team1Data = null, team2Data = null) {
     try {
-      console.log('Processing match result with error handling');
+      console.log('Processing match result with error handling (including team ELO)');
 
       // Validate inputs
       const team1Validation = this.validatePlayerData(team1Players);
@@ -269,6 +272,7 @@ export class BadmintonEloSystem {
 
       const team1Won = team1Score > team2Score;
       const eloUpdates = [];
+      const teamEloUpdates = [];
     
       // Process each player with error handling
       const allPlayers = [...team1Players, ...team2Players];
@@ -326,15 +330,43 @@ export class BadmintonEloSystem {
     });
   }
       }
+
+      // Process team ELO if team data is provided
+      if (team1Data && team2Data) {
+    try {
+          console.log('Processing team ELO ratings...');
+          const teamUpdates = teamEloSystem.processTeamMatchResult(
+            team1Data,
+            team2Data,
+            team1Score,
+            team2Score
+      );
+          teamEloUpdates.push(...teamUpdates);
+          console.log(`Generated ${teamUpdates.length} team ELO updates`);
+        } catch (teamError) {
+          console.error('Error processing team ELO:', teamError);
+          // Continue without team ELO updates
+    }
+      } else {
+        console.log('Team data not provided, skipping team ELO processing');
+      }
+    
       console.log('ELO processing completed successfully');
-      return eloUpdates;
+
+      return {
+        playerEloUpdates: eloUpdates,
+        teamEloUpdates: teamEloUpdates
+      };
 
     } catch (error) {
       console.error('Critical error in ELO processing:', error);
       // Return empty updates to prevent system crash
-      return [];
-    }
+      return {
+        playerEloUpdates: [],
+        teamEloUpdates: []
+      };
   }
+}
 
   /**
    * Calculate team average rating with error handling - FIXED to return integers
@@ -425,7 +457,7 @@ export class BadmintonEloSystem {
     
       // Base confidence on games played
       let confidence = Math.min(100, (gamesPlayed / 20) * 100);
-    
+
       // Adjust based on how far from threshold
       const currentSkill = player.skill_level || 'Intermediate';
       const currentThreshold = this.skillThresholds[currentSkill];
@@ -478,7 +510,7 @@ export class BadmintonEloSystem {
     }
 
     return Math.max(16, Math.min(64, Math.round(kFactor)));
-  }
+}
 }
 
 // Create singleton instance with error handling

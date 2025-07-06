@@ -1,5 +1,5 @@
-import { supabase } from './supabaseService';
-import { badmintonEloSystem } from '../utils/BadmintonEloSystem';
+import { supabase } from './supabaseService.jsx';
+import { badmintonEloSystem } from '../utils/BadmintonEloSystem.jsx';
 
 /**
  * Create a new match with scores and process ELO updates

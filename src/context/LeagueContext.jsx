@@ -5,6 +5,7 @@ import { deleteMatchWithStats } from '../services/matchDeletion';
 import { createMatchWithScores } from '../services/matchCreation'; // Import the new function
 import { roundRobinScheduler } from '../utils/schedulingUtils';
 import { badmintonEloSystem } from '../utils/BadmintonEloSystem';
+import { unifiedEloService } from '../services/unifiedEloServiceComplete'; // COMPLETE FIX: Use the fully fixed service
 
 const LeagueContext = createContext();
 
@@ -338,31 +339,50 @@ export function LeagueProvider({ children }) {
   };
 
   // Match actions
-  // FIXED: Add match with proper handling for scores
+  // FIXED: Add match with unified ELO processing
   const addMatch = async (matchData) => {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+
       // Check if scores are included to determine if we need ELO processing
       const includesScores = matchData.team1Score !== undefined && matchData.team2Score !== undefined;
 
-      let newMatch;
       if (!includesScores) {
         // Simple match creation without scores
-        newMatch = await supabaseService.addMatch(matchData);
-      } else {
-        // Use our specialized function for match creation with scores
-        newMatch = await createMatchWithScores(matchData);
-      }
-
-      // Add to state
+        const newMatch = await supabaseService.addMatch(matchData);
       dispatch({ type: ACTION_TYPES.ADD_MATCH, payload: newMatch });
-
-      // If scores were added, reload data to ensure ELO ratings are refreshed
-      if (includesScores) {
-          await loadInitialData();
-      }
-
       return newMatch;
+      } else {
+        // Create match with scores using unified ELO processing
+        console.log('🎯 Creating match with scores using Unified ELO Service');
+
+        // First create the basic match
+        const basicMatchData = {
+          team1Id: matchData.team1Id,
+          team2Id: matchData.team2Id,
+          scheduledDate: matchData.scheduledDate,
+          status: 'scheduled'
+  };
+
+        const newMatch = await supabaseService.addMatch(basicMatchData);
+
+        // Then process the scores using unified service
+        const result = await unifiedEloService.processMatchEloUpdate(
+          newMatch.id,
+          {
+            team1Score: matchData.team1Score,
+            team2Score: matchData.team2Score
+          },
+          false // Not already completed
+      );
+
+        dispatch({ type: ACTION_TYPES.ADD_MATCH, payload: result.match });
+
+        // Reload data to reflect ELO changes
+          await loadInitialData();
+
+        return result.match;
+      }
     } catch (error) {
       console.error('Error creating match:', error);
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
@@ -372,145 +392,45 @@ export function LeagueProvider({ children }) {
     }
   };
 
-  // OPTIMIZED: Enhanced match update using optimized service
+  // Enhanced match update function with unified ELO processing
   const updateMatch = async (matchId, matchData) => {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
-      console.time('match-update'); // Performance measurement
+      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: null });
 
-      // Get current match to check completion status
-      const currentMatch = state.matches.find(m => m.id === matchId);
-      if (!currentMatch) {
-        throw new Error('Match not found');
-      }
+      const currentMatch = state.matches.find(match => match.id === matchId);
+      const wasAlreadyCompleted = currentMatch?.status === 'completed';
 
-      // Check if this is a score update
-      const isScoreUpdate = matchData.team1Score !== undefined && matchData.team2Score !== undefined;
-      const wasAlreadyCompleted = currentMatch.status === 'completed';
+      // UNIFIED ELO PROCESSING: Use the same system as setup page
+      if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
+        console.log('🎯 Using Unified ELO Service for match update');
 
-      console.log('Match update details:', {
-        matchId,
-        isScoreUpdate,
-        wasAlreadyCompleted
-      });
-
-      if (isScoreUpdate) {
-        // Use cached player data from state if available
-        let team1Players = [];
-        let team2Players = [];
-
-        if (currentMatch.team1?.team_players) {
-          team1Players = currentMatch.team1.team_players
-            .map(tp => {
-              // Find full player data in state
-              const playerId = tp.player_id;
-              const statePlayer = state.players.find(p => p.id === playerId);
-
-              // Use either cached data or fallback to what's in the match data
-              return statePlayer || tp.players;
-            })
-            .filter(Boolean)
-            .map(player => ({
-            ...player,
-            elo_rating: player.elo_rating || 1500,
-            elo_games_played: player.elo_games_played || 0,
-            peak_elo_rating: player.peak_elo_rating || player.elo_rating || 1500,
-            matches_played: player.matches_played || 0,
-            matches_won: player.matches_won || 0,
-            points: player.points || 0
-            }));
-        }
-
-        if (currentMatch.team2?.team_players) {
-          team2Players = currentMatch.team2.team_players
-            .map(tp => {
-              // Find full player data in state
-              const playerId = tp.player_id;
-              const statePlayer = state.players.find(p => p.id === playerId);
-
-              // Use either cached data or fallback to what's in the match data
-              return statePlayer || tp.players;
-            })
-            .filter(Boolean)
-            .map(player => ({
-            ...player,
-            elo_rating: player.elo_rating || 1500,
-            elo_games_played: player.elo_games_played || 0,
-            peak_elo_rating: player.peak_elo_rating || player.elo_rating || 1500,
-            matches_played: player.matches_played || 0,
-            matches_won: player.matches_won || 0,
-            points: player.points || 0
-            }));
-        }
-
-        console.log('Using player data:', {
-          team1PlayersCount: team1Players.length,
-          team2PlayersCount: team2Players.length
-        });
-
-        if (team1Players.length === 2 && team2Players.length === 2) {
-          console.time('elo-calculation'); // Measure ELO calculation time
-          // Calculate ELO updates
-          const eloUpdates = badmintonEloSystem.processMatchResult(
-            team1Players,
-            team2Players,
-            matchData.team1Score,
-            matchData.team2Score
+        const result = await unifiedEloService.processMatchEloUpdate(
+          matchId,
+          matchData,
+          wasAlreadyCompleted
   );
-          console.timeEnd('elo-calculation');
 
-          console.log('ELO updates calculated:', eloUpdates);
+        dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: result.match });
 
-          // Enhanced match data
-          const enhancedMatchData = {
-            ...matchData,
-            status: 'completed',
-            winner_team_id: matchData.team1Score > matchData.team2Score ? currentMatch.team1_id : currentMatch.team2_id,
-            team1Id: currentMatch.team1_id,
-            team2Id: currentMatch.team2_id
-          };
+        // Reload data to reflect all changes
+        await loadInitialData();
 
-          console.time('db-update'); // Measure database update time
-          // Use the optimized service for better performance
-          const updatedMatch = await matchService.updateMatchWithElo(
-            matchId,
-            enhancedMatchData,
-            eloUpdates,
-            wasAlreadyCompleted
-          );
-          console.timeEnd('db-update');
-
-          console.log('Match updated successfully:', updatedMatch.id);
-
-          // Update local state first for immediate UI feedback
-          dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
-
-          // Load fresh data in the background
-          setTimeout(() => {
-            loadInitialData().catch(error => {
-              console.error('Background data reload error:', error);
-            });
-          }, 500);
-
-          console.timeEnd('match-update');
-          return updatedMatch;
-        } else {
-          console.error('Invalid player count:', {
-            team1Count: team1Players.length,
-            team2Count: team2Players.length
-          });
-          throw new Error(`Invalid player data: Team1 has ${team1Players.length} players, Team2 has ${team2Players.length} players. Expected 2 each.`);
-}
+        return result;
       } else {
         // Regular match update without scores
-        const updatedMatch = await matchService.updateMatch(matchId, matchData);
+        const enhancedMatchData = {
+          ...matchData,
+          status: matchData.status || currentMatch?.status || 'scheduled'
+        };
+
+        const updatedMatch = await supabaseService.updateMatch(matchId, enhancedMatchData);
         dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
-        console.timeEnd('match-update');
-        return updatedMatch;
-      }
+        return { match: updatedMatch, playerEloUpdates: [], teamEloUpdates: [] };
+}
 
     } catch (error) {
-      console.error('Match update error:', error);
+      console.error('Error updating match:', error);
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
       throw error;
     } finally {

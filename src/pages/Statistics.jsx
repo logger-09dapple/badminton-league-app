@@ -4,6 +4,7 @@ import StatsCard from '../components/StatsCard';
 import ChartsAndGraphs from '../components/ChartsAndGraphs';
 import MobileRankingCard from '../components/MobileRankingCard';
 import { analyticsUtils } from '../utils/analyticsUtils';
+import { getPlayerEloProgression, getTeamEloProgression } from '../utils/eloChartUtils';
 import '../styles/Statistics.css'; // Import the new CSS file
 import { 
   Users, 
@@ -200,7 +201,7 @@ const Statistics = () => {
     }
   }, [players, filteredMatches, calculateRecentForm]);
 
-  // Calculate team statistics - Enhanced with ELO ratings
+  // Calculate team statistics - Enhanced with actual team ELO ratings
   const teamStats = useMemo(() => {
     if (!teams || !Array.isArray(teams)) return [];
 
@@ -214,9 +215,11 @@ const Statistics = () => {
             
             const playerNames = team.team_players?.map(tp => tp.players?.name).filter(Boolean).join(' & ') || 'No Players';
             
-            // Calculate team ELO as average of player ELOs
-            let teamEloRating = 1500;
-            if (team.team_players && team.team_players.length > 0) {
+            // Use actual team ELO rating from database, fallback to average if not available
+            let teamEloRating = team.team_elo_rating || 1500;
+
+            // If no team ELO rating exists, calculate from player averages as fallback
+            if (!team.team_elo_rating && team.team_players && team.team_players.length > 0) {
               const playerElos = team.team_players
                 .map(tp => {
                   const player = players?.find(p => p.id === tp.player_id);
@@ -228,6 +231,7 @@ const Statistics = () => {
                 teamEloRating = Math.round(playerElos.reduce((sum, elo) => sum + elo, 0) / playerElos.length);
               }
             }
+
             return {
               ...team,
               winRate: parseFloat(winRate),
@@ -253,7 +257,7 @@ const Statistics = () => {
           if (a.hasPlayedMatches && !b.hasPlayedMatches) return -1;
           if (!a.hasPlayedMatches && b.hasPlayedMatches) return 1;
 
-          // Sort by team ELO rating first
+          // Sort by team ELO rating first (now using actual team ELO)
           if (b.teamEloRating !== a.teamEloRating) return b.teamEloRating - a.teamEloRating;
           // Then by points, win rate, and matches won
           if (b.points !== a.points) return (b.points || 0) - (a.points || 0);
@@ -270,23 +274,63 @@ const Statistics = () => {
     }
   }, [teams, players]);
 
-  // Calculate performance trends for selected entity - Pass players data for ELO tracking
+  // Calculate performance trends for selected entity - Now uses actual ELO history
   const performanceTrends = useMemo(() => {
     if (!filteredMatches) return [];
     
-    try {
+    // We'll use async loading for the trends since we need to fetch ELO history
+    return []; // This will be replaced by useEffect
+  }, []);
+
+  // State for actual performance trends with ELO history
+  const [actualPerformanceTrends, setActualPerformanceTrends] = useState([]);
+  const [trendsLoading, setTrendsLoading] = useState(false);
+
+  // Load actual performance trends with ELO history
+  useEffect(() => {
+    const loadPerformanceTrends = async () => {
+      if (!filteredMatches || (!selectedPlayer && !selectedTeam)) {
+        setActualPerformanceTrends([]);
+        return;
+      }
+
+      setTrendsLoading(true);
+      try {
+        let trends = [];
+
       if (selectedPlayer) {
-        return analyticsUtils.calculatePerformanceTrends(filteredMatches, selectedPlayer, null, players);
+          console.log('Loading player ELO progression for player:', selectedPlayer);
+          trends = await getPlayerEloProgression(selectedPlayer, filteredMatches, players);
       } else if (selectedTeam) {
-        return analyticsUtils.calculatePerformanceTrends(filteredMatches, null, selectedTeam, players);
+          console.log('Loading team ELO progression for team:', selectedTeam);
+          console.log('Team stats available:', teamStats.map(t => ({ id: t.id, name: t.name })));
+          trends = await getTeamEloProgression(selectedTeam, filteredMatches, teams);
       }
       
-      return [];
+        console.log('Loaded performance trends:', trends.length, 'data points');
+        setActualPerformanceTrends(trends);
     } catch (error) {
-      console.warn('Error calculating performance trends:', error);
-      return [];
+        console.error('Error loading performance trends:', error);
+        // Fallback to old calculation
+        try {
+          if (selectedPlayer) {
+            const fallback = analyticsUtils.calculatePerformanceTrends(filteredMatches, selectedPlayer, null, players, teams);
+            setActualPerformanceTrends(fallback);
+          } else if (selectedTeam) {
+            const fallback = analyticsUtils.calculatePerformanceTrends(filteredMatches, null, selectedTeam, players, teams);
+            setActualPerformanceTrends(fallback);
     }
-  }, [filteredMatches, selectedPlayer, selectedTeam, players]);
+        } catch (fallbackError) {
+          console.error('Fallback calculation also failed:', fallbackError);
+          setActualPerformanceTrends([]);
+        }
+      } finally {
+        setTrendsLoading(false);
+      }
+};
+
+    loadPerformanceTrends();
+  }, [filteredMatches, selectedPlayer, selectedTeam, players, teams, teamStats]);
 
   // Calculate head-to-head data - now with proper player comparison
   const headToHeadData = useMemo(() => {
@@ -308,6 +352,11 @@ const Statistics = () => {
   const comparePlayerName = useMemo(() => {
     return playerStats.find(p => p.id === comparePlayer)?.name || '';
   }, [playerStats, comparePlayer]);
+
+  // Get team name for display - FIXED: Add team name lookup
+  const selectedTeamName = useMemo(() => {
+    return teamStats.find(t => t.id === selectedTeam)?.name || '';
+  }, [teamStats, selectedTeam]);
 
   // Calculate competitiveness data
   const competitivenessData = useMemo(() => {
@@ -498,7 +547,7 @@ const Statistics = () => {
                 )}
               <ChartsAndGraphs
                   type={chartType}
-                  performanceTrends={chartType === 'performance' ? [] : performanceTrends}
+                  performanceTrends={chartType === 'performance' ? [] : actualPerformanceTrends}
                   eloDistribution={analyticsData.eloDistribution}
                   skillDistribution={analyticsData.skillLevelDistribution}
                   headToHeadData={headToHeadData}
@@ -545,18 +594,49 @@ const Statistics = () => {
               )}
             </div>
           </div>
-          
-          {selectedPlayer && performanceTrends.length > 0 && (
+
+          {selectedPlayer && actualPerformanceTrends.length > 0 && (
             <div className="player-analysis">
               <h3>Performance Analysis - {selectedPlayerName}</h3>
-              <ChartsAndGraphs
-                type="performance"
-                performanceTrends={performanceTrends}
-                selectedPlayerName={selectedPlayerName}
-              />
+              {trendsLoading && (
+                <div className="loading-state">
+              <div className="loading-spinner"></div>
+                  <p>Loading ELO progression...</p>
             </div>
           )}
+              {!trendsLoading && (
+                <>
+              <ChartsAndGraphs
+                type="performance"
+                performanceTrends={actualPerformanceTrends}
+                selectedPlayerName={selectedPlayerName}
+              />
+                  <div className="elo-history-info">
+                    <p className="text-sm text-gray-600 mt-2">
+                      {actualPerformanceTrends.filter(t => t.hasActualHistory).length > 0 ? (
+                        <>
+                          ✅ Showing actual ELO history from {actualPerformanceTrends.filter(t => t.hasActualHistory).length} matches
+                          {actualPerformanceTrends.some(t => !t.hasActualHistory) &&
+                            ` (${actualPerformanceTrends.filter(t => !t.hasActualHistory).length} estimated)`
+                          }
+                        </>
+            ) : (
+                        <>⚠️ Using estimated ELO progression (no stored history found)</>
+            )}
+                  </p>
+                </div>
+                </>
+      )}
+    </div>
+          )}
           
+          {trendsLoading && selectedPlayer && (
+            <div className="loading-trends">
+              <div className="loading-spinner"></div>
+              <p>Loading performance trends...</p>
+            </div>
+          )}
+
           {headToHeadData && selectedPlayer && comparePlayer && (
             <div className="head-to-head-analysis">
               <h3>Head-to-Head Comparison</h3>
@@ -624,13 +704,45 @@ const Statistics = () => {
             </div>
           </div>
 
-          {selectedTeam && performanceTrends.length > 0 && (
+          {selectedTeam && actualPerformanceTrends.length > 0 && (
             <div className="team-analysis">
-              <h3>Team Performance Analysis</h3>
-              <ChartsAndGraphs
-                type="performance"
-                performanceTrends={performanceTrends}
-              />
+              <h3>Team Performance Analysis - {selectedTeamName}</h3>
+              {trendsLoading && (
+                <div className="loading-state">
+              <div className="loading-spinner"></div>
+                  <p>Loading team ELO progression...</p>
+            </div>
+          )}
+              {!trendsLoading && (
+                <>
+                  <ChartsAndGraphs
+                    type="performance"
+                    performanceTrends={actualPerformanceTrends}
+                    selectedTeamName={selectedTeamName}
+                  />
+                  <div className="elo-history-info">
+                    <p className="text-sm text-gray-600 mt-2">
+                      {actualPerformanceTrends.filter(t => t.hasActualHistory).length > 0 ? (
+                        <>
+                          ✅ Showing actual team ELO history from {actualPerformanceTrends.filter(t => t.hasActualHistory).length} matches
+                          {actualPerformanceTrends.some(t => !t.hasActualHistory) &&
+                            ` (${actualPerformanceTrends.filter(t => !t.hasActualHistory).length} estimated)`
+                          }
+                        </>
+                      ) : (
+                        <>⚠️ Using estimated team ELO progression (run team ELO history setup first)</>
+      )}
+                    </p>
+    </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {trendsLoading && selectedTeam && (
+            <div className="loading-trends">
+              <div className="loading-spinner"></div>
+              <p>Loading performance trends...</p>
             </div>
           )}
 

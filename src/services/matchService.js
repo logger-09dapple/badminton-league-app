@@ -1,244 +1,220 @@
 import { supabase } from './supabaseService';
+import { badmintonEloSystem } from '../utils/BadmintonEloSystem';
+import { teamEloService } from './teamEloService';
 
-/**
- * Optimized service for match operations
- */
 export const matchService = {
   /**
    * Update a match with ELO rating processing in an optimized way
    */
   async updateMatchWithElo(matchId, matchData, eloUpdates, wasAlreadyCompleted = false) {
     try {
-      console.log('Processing match update with ELO:', {
+      console.log('Processing match update with ELO (including team ELO):', {
         matchId,
         wasAlreadyCompleted,
-        eloUpdatesCount: eloUpdates?.length || 0
+        playerEloUpdates: eloUpdates?.playerEloUpdates?.length || 0,
+        teamEloUpdates: eloUpdates?.teamEloUpdates?.length || 0
       });
-      console.time('elo-processing'); // Start timing
 
-      // Validate ELO updates array
-      if (!Array.isArray(eloUpdates) || eloUpdates.length === 0) {
-        console.warn('No ELO updates provided, performing regular match update');
+      // Extract player and team ELO updates
+      const playerEloUpdates = eloUpdates?.playerEloUpdates || [];
+      const teamEloUpdates = eloUpdates?.teamEloUpdates || [];
+      // Validate player ELO updates array
+      if (!Array.isArray(playerEloUpdates) || playerEloUpdates.length === 0) {
+        console.warn('No player ELO updates provided, performing regular match update');
         return await this.updateMatch(matchId, matchData);
       }
 
-      // Update match scores and status first
-      const matchUpdateData = {
-        team1_score: matchData.team1Score,
-        team2_score: matchData.team2Score,
-        status: matchData.status || 'completed',
-        winner_team_id: matchData.winner_team_id || (matchData.team1Score > matchData.team2Score ? matchData.team1Id : matchData.team2Id),
-        updated_at: new Date().toISOString()
-      };
-
-      // 1. Update match first so UI can be updated quickly
-      console.time('match-update-db'); // Measure match update time
+      // Update the match first
       const { data: updatedMatch, error: matchError } = await supabase
         .from('matches')
-        .update(matchUpdateData)
+        .update(matchData)
         .eq('id', matchId)
         .select(`
           *,
-          team1:teams!matches_team1_id_fkey(*),
-          team2:teams!matches_team2_id_fkey(*),
-          winner_team:teams!matches_winner_team_id_fkey(*)
+          team1:teams!matches_team1_id_fkey (
+            id,
+            name,
+            team_elo_rating,
+            matches_played,
+            team_players (
+              players (
+                id,
+                name,
+                elo_rating
+              )
+            )
+          ),
+          team2:teams!matches_team2_id_fkey (
+            id,
+            name,
+            team_elo_rating,
+            matches_played,
+            team_players (
+              players (
+                id,
+                name,
+                elo_rating
+              )
+            )
+          )
         `)
-        .single();
-      console.timeEnd('match-update-db');
+      .single();
+    
+      if (matchError) {
+        console.error('Error updating match:', matchError);
+        throw matchError;
+      }
 
-      if (matchError) throw matchError;
-
-      // 2. Prepare batch operations for players updates
-      console.time('player-updates'); // Measure player update time
-      
-      // Collect player IDs that need updating
-      const playerIds = eloUpdates.map(update => update.playerId);
-      
-      // Get current player data in a single query (more efficient)
+      // Get current player data for all affected players
+      const playerIds = playerEloUpdates.map(update => update.playerId);
       const { data: currentPlayers, error: fetchError } = await supabase
         .from('players')
         .select('id, matches_played, matches_won, points, elo_games_played, elo_rating, peak_elo_rating, skill_level')
         .in('id', playerIds);
-        
-      if (fetchError) throw fetchError;
-      
-      // Create a map for easy lookup
-      const playerMap = (currentPlayers || []).reduce((map, player) => {
-        map[player.id] = player;
-        return map;
-      }, {});
-      
-      // Prepare history records and player updates
-      const historyRecords = [];
+
+      if (fetchError) {
+        console.error('Error fetching current player data:', fetchError);
+        throw fetchError;
+      }
+
+      // Process player updates
       const playerUpdates = [];
-      const skillLevelChanges = [];
+      const playerHistoryRecords = [];
 
-      // Only do player stats updates if match wasn't already completed
-      const updatePlayerStats = !wasAlreadyCompleted;
-      
-      for (const update of eloUpdates) {
-        // Get current player data
-        const currentPlayer = playerMap[update.playerId] || {
-          id: update.playerId,
-          matches_played: 0,
-          matches_won: 0,
-          points: 0,
-          elo_games_played: 0,
-          elo_rating: 1500,
-          peak_elo_rating: 1500,
-          skill_level: update.oldSkillLevel
-        };
-        
-        // Determine if this player was on winning team
-        const isWinner = update.ratingChange > 0;
-        
-        // Calculate new values
-        const newEloGamesPlayed = updatePlayerStats 
-          ? currentPlayer.elo_games_played + 1
-          : currentPlayer.elo_games_played;
+      for (const update of playerEloUpdates) {
+        if (update.error) {
+          console.warn(`Skipping player update due to error: ${update.error}`);
+          continue;
+        }
 
-        const newMatchesPlayed = updatePlayerStats 
-          ? currentPlayer.matches_played + 1
-          : currentPlayer.matches_played;
+        const currentPlayer = currentPlayers.find(p => p.id === update.playerId);
+        if (!currentPlayer) {
+          console.warn(`Player ${update.playerId} not found, skipping update`);
+          continue;
+        }
 
-        const newMatchesWon = updatePlayerStats && isWinner
-          ? currentPlayer.matches_won + 1
-          : currentPlayer.matches_won;
+        const newMatchesPlayed = wasAlreadyCompleted ?
+          currentPlayer.matches_played :
+          (currentPlayer.matches_played || 0) + 1;
 
-        const newPoints = updatePlayerStats && isWinner
-          ? currentPlayer.points + 1
-          : currentPlayer.points;
-        
-        const newPeakRating = Math.max(
-          update.newRating,
-          currentPlayer.peak_elo_rating || update.newRating
+        const newMatchesWon = wasAlreadyCompleted ?
+          currentPlayer.matches_won :
+          (currentPlayer.matches_won || 0) + (update.won ? 1 : 0);
+
+        const newEloGamesPlayed = wasAlreadyCompleted ?
+          currentPlayer.elo_games_played :
+          (currentPlayer.elo_games_played || 0) + 1;
+
+        const newPeakElo = Math.max(
+          currentPlayer.peak_elo_rating || update.newRating,
+          update.newRating
         );
-        
-        // Add player update
+
         playerUpdates.push({
           id: update.playerId,
-          data: {
-            elo_rating: update.newRating,
-            peak_elo_rating: newPeakRating,
-            skill_level: update.newSkillLevel,
-            elo_games_played: newEloGamesPlayed,
-            matches_played: newMatchesPlayed,
-            matches_won: newMatchesWon,
-            points: newPoints,
-            updated_at: new Date().toISOString()
-          }
+          matches_played: newMatchesPlayed,
+          matches_won: newMatchesWon,
+          elo_rating: update.newRating,
+          peak_elo_rating: newPeakElo,
+          elo_games_played: newEloGamesPlayed,
+          skill_level: update.newSkillLevel
         });
-        
-        // Add history record
-        historyRecords.push({
+
+        playerHistoryRecords.push({
           player_id: update.playerId,
           match_id: matchId,
-          old_rating: update.oldRating,
-          new_rating: update.newRating,
-          rating_change: update.ratingChange,
+          old_elo_rating: update.oldRating,
+          new_elo_rating: update.newRating,
+          elo_change: update.ratingChange,
           old_skill_level: update.oldSkillLevel,
           new_skill_level: update.newSkillLevel,
+          elo_rating: Math.round(update.newRating),
           opponent_avg_rating: update.opponentAvgRating,
-          k_factor: update.kFactor
+          reason: wasAlreadyCompleted ? 'Score correction ELO update' : 'Match completion ELO update',
+          auto_applied: true
         });
-        
-        // Track skill level changes
-        if (update.oldSkillLevel !== update.newSkillLevel) {
-          skillLevelChanges.push({
-            player_id: update.playerId,
-            old_skill_level: update.oldSkillLevel,
-            new_skill_level: update.newSkillLevel,
-            elo_rating: update.newRating,
-            reason: wasAlreadyCompleted ? 'Score correction ELO update' : 'Match completion ELO update',
-            auto_applied: true
-          });
+      }
+
+      // Update players
+      if (playerUpdates.length > 0) {
+        const { error: playerUpdateError } = await supabase
+          .from('players')
+          .upsert(playerUpdates);
+
+        if (playerUpdateError) {
+          console.error('Error updating players:', playerUpdateError);
+          throw playerUpdateError;
         }
       }
-      
-      // 3. Apply all player updates in parallel for better performance
-      const playerUpdatePromises = playerUpdates.map(async ({id, data}) => {
-        const { error } = await supabase
-          .from('players')
-          .update(data)
-          .eq('id', id);
-          
-        if (error) throw error;
-      });
-      
-      await Promise.all(playerUpdatePromises);
-      
-      // 4. Record history in a single batch
-      if (historyRecords.length > 0) {
+
+      // Insert player rating history
+      if (playerHistoryRecords.length > 0) {
         const { error: historyError } = await supabase
           .from('player_rating_history')
-          .insert(historyRecords);
-        
-        if (historyError) throw historyError;
-      }
-      
-      // 5. Record skill changes in a single batch
-      if (skillLevelChanges.length > 0) {
-        const { error: skillError } = await supabase
-          .from('skill_level_changes')
-          .insert(skillLevelChanges);
-        
-        if (skillError) throw skillError;
-      }
-      console.timeEnd('player-updates');
+          .insert(playerHistoryRecords);
 
-      // 6. Update team statistics if this is a new completion
-      if (!wasAlreadyCompleted && updatedMatch.winner_team_id) {
-        console.time('team-updates');
-        const winnerId = updatedMatch.winner_team_id;
-        const loserId = winnerId === updatedMatch.team1_id 
-          ? updatedMatch.team2_id 
-          : updatedMatch.team1_id;
-          
-        // Get both teams in a single query
-        const { data: teams, error: teamsError } = await supabase
-          .from('teams')
-          .select('id, matches_played, matches_won, points')
-          .in('id', [winnerId, loserId]);
-          
-        if (teamsError) throw teamsError;
-        
-        // Find winner and loser in the results
-        const winner = teams.find(t => t.id === winnerId) || {
-          matches_played: 0, matches_won: 0, points: 0 
-        };
-        
-        const loser = teams.find(t => t.id === loserId) || { 
-          matches_played: 0 
-        };
-        
-        // Update winner
-        const { error: winnerError } = await supabase
-          .from('teams')
-          .update({
-            matches_played: (winner.matches_played || 0) + 1,
-            matches_won: (winner.matches_won || 0) + 1,
-            points: (winner.points || 0) + 1,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', winnerId);
-          
-        if (winnerError) throw winnerError;
-        
-        // Update loser
-        const { error: loserError } = await supabase
-          .from('teams')
-          .update({
-            matches_played: (loser.matches_played || 0) + 1,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', loserId);
-          
-        if (loserError) throw loserError;
-        console.timeEnd('team-updates');
+        if (historyError) {
+          console.error('Error inserting player rating history:', historyError);
+          // Don't throw here, continue with team processing
+        }
       }
 
-      console.timeEnd('elo-processing');
-      console.log('ELO processing completed successfully');
+      // Process team ELO updates
+      if (teamEloUpdates.length > 0) {
+        console.log(`Processing ${teamEloUpdates.length} team ELO updates...`);
+
+        const teamUpdates = [];
+
+        for (const teamUpdate of teamEloUpdates) {
+          if (teamUpdate.error) {
+            console.warn(`Skipping team update due to error: ${teamUpdate.error}`);
+            continue;
+          }
+
+          const newTeamGamesPlayed = wasAlreadyCompleted ?
+            (updatedMatch.team1_id === teamUpdate.teamId ?
+              updatedMatch.team1?.matches_played :
+              updatedMatch.team2?.matches_played) || 0 :
+            ((updatedMatch.team1_id === teamUpdate.teamId ?
+              updatedMatch.team1?.matches_played :
+              updatedMatch.team2?.matches_played) || 0) + 1;
+
+          const currentTeamElo = updatedMatch.team1_id === teamUpdate.teamId ?
+            updatedMatch.team1?.team_elo_rating :
+            updatedMatch.team2?.team_elo_rating;
+
+          const newPeakTeamElo = Math.max(
+            currentTeamElo || teamUpdate.newRating,
+            teamUpdate.newRating
+          );
+
+          teamUpdates.push({
+            id: teamUpdate.teamId,
+            team_elo_rating: teamUpdate.newRating,
+            peak_team_elo_rating: newPeakTeamElo,
+            team_elo_games_played: newTeamGamesPlayed
+          });
+        }
+
+        // Update teams
+        if (teamUpdates.length > 0) {
+          const { error: teamUpdateError } = await supabase
+            .from('teams')
+            .upsert(teamUpdates);
+
+          if (teamUpdateError) {
+            console.error('Error updating teams:', teamUpdateError);
+            // Don't throw here, log and continue
+          } else {
+            console.log(`Updated ${teamUpdates.length} teams with new ELO ratings`);
+          }
+        }
+
+        // Record team ELO history
+        await teamEloService.recordTeamEloChanges(matchId, teamEloUpdates);
+      }
+
+      console.log('Match update with ELO processing completed successfully');
       return updatedMatch;
       
     } catch (error) {
@@ -251,37 +227,130 @@ export const matchService = {
    * Update a match (regular update without ELO processing)
    */
   async updateMatch(id, matchData) {
-    const updateData = {
-      updated_at: new Date().toISOString()
-    };
-
-    if (matchData.team1Id) updateData.team1_id = matchData.team1Id;
-    if (matchData.team2Id) updateData.team2_id = matchData.team2Id;
-    if (matchData.scheduledDate !== undefined) updateData.scheduled_date = matchData.scheduledDate;
-    if (matchData.status) updateData.status = matchData.status;
-    if (matchData.team1Score !== undefined) updateData.team1_score = matchData.team1Score;
-    if (matchData.team2Score !== undefined) updateData.team2_score = matchData.team2Score;
-    
-    // Determine winner if scores are provided
-    if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
-      updateData.winner_team_id = matchData.team1Score > matchData.team2Score ? matchData.team1Id : matchData.team2Id;
-      updateData.status = 'completed';
-    }
-
+    try {
     const { data, error } = await supabase
       .from('matches')
-      .update(updateData)
-      .eq('id', id)
+        .update(matchData)
+        .eq('id', id)
       .select(`
         *,
-        team1:teams!matches_team1_id_fkey(*),
-        team2:teams!matches_team2_id_fkey(*),
-        winner_team:teams!matches_winner_team_id_fkey(*)
-      `)
-      .single();
+          team1:teams!matches_team1_id_fkey (
+            id,
+            name,
+            team_elo_rating,
+            team_players (
+              players (
+                id,
+                name,
+                elo_rating
+              )
+            )
+          ),
+          team2:teams!matches_team2_id_fkey (
+            id,
+            name,
+            team_elo_rating,
+            team_players (
+              players (
+                id,
+                name,
+                elo_rating
+              )
+            )
+          )
+        `)
+        .single();
     
-    if (error) throw error;
+      if (error) {
+        console.error('Error updating match:', error);
+        throw error;
+      }
+    
     return data;
+    } catch (error) {
+      console.error('Error in updateMatch:', error);
+      throw error;
+  }
+  },
+
+  /**
+   * Create a new match with ELO processing
+   */
+  async createMatch(matchData) {
+    try {
+      // Insert basic match data
+      const insertData = {
+        ...matchData,
+        status: matchData.status || 'scheduled'
+};
+
+      const { data: newMatch, error } = await supabase
+        .from('matches')
+        .insert(insertData)
+        .select(`
+          *,
+          team1:teams!matches_team1_id_fkey (
+            id,
+            name,
+            team_elo_rating,
+            team_players (
+              players (
+                id,
+                name,
+                elo_rating
+              )
+            )
+          ),
+          team2:teams!matches_team2_id_fkey (
+            id,
+            name,
+            team_elo_rating,
+            team_players (
+              players (
+                id,
+                name,
+                elo_rating
+              )
+            )
+          )
+        `)
+        .single();
+
+      if (error) {
+        console.error('Error creating match:', error);
+        throw error;
+      }
+
+      // Process ELO if scores were provided and match is completed
+      if (insertData.status === 'completed' &&
+          insertData.team1_score !== undefined &&
+          insertData.team2_score !== undefined) {
+
+        // Get team players for ELO calculation
+        const team1Players = newMatch.team1?.team_players?.map(tp => tp.players) || [];
+        const team2Players = newMatch.team2?.team_players?.map(tp => tp.players) || [];
+
+        if (team1Players.length === 2 && team2Players.length === 2) {
+          // Calculate ELO updates including team ELO
+          const eloResult = badmintonEloSystem.processMatchResult(
+            team1Players,
+            team2Players,
+            insertData.team1_score,
+            insertData.team2_score,
+            newMatch.team1, // Pass team data for team ELO
+            newMatch.team2  // Pass team data for team ELO
+          );
+
+          // Update match with ELO processing
+          return await this.updateMatchWithElo(newMatch.id, {}, eloResult, false);
+        }
+      }
+
+      return newMatch;
+    } catch (error) {
+      console.error('Error in createMatch:', error);
+      throw error;
+    }
   },
 
   /**
@@ -300,8 +369,8 @@ export const matchService = {
       insertData.team1_score = matchData.team1Score;
       insertData.team2_score = matchData.team2Score;
       insertData.status = 'completed';
-      insertData.winner_team_id = matchData.team1Score > matchData.team2Score 
-        ? matchData.team1Id 
+      insertData.winner_team_id = matchData.team1Score > matchData.team2Score
+        ? matchData.team1Id
         : matchData.team2Id;
     }
 

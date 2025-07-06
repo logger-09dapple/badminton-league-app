@@ -35,7 +35,8 @@ const ChartsAndGraphs = ({
   competitivenessData,
   type = 'performance',
   selectedPlayerName = '',
-  comparePlayerName = ''
+  comparePlayerName = '',
+  selectedTeamName = ''
 }) => {
   
   // Chart options for consistent styling
@@ -193,7 +194,7 @@ const ChartsAndGraphs = ({
       <div className="chart-container">
         <div className="chart-header">
           <TrendingUp size={20} />
-          <h3>Performance Trends - {selectedPlayerName || 'Player'}</h3>
+          <h3>Performance Trends - {selectedPlayerName || selectedTeamName || 'Player/Team'}</h3>
           <p className="chart-subtitle">{performanceTrends.length} completed matches</p>
         </div>
         <div className="chart-wrapper">

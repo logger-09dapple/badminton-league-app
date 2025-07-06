@@ -42,3 +42,9 @@ supabase/
 changes-summary.md
 dist/
 FEATURES_IMPLEMENTATION.md
+public/
+src/docs/
+src/sql/
+src/database/
+index.html
+database/

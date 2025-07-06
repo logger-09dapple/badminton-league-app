@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { supabaseService } from '../services/supabaseService';
+import { supabaseService, supabase } from '../services/supabaseService'; // Add supabase import
 import { badmintonEloSystem } from '../utils/BadmintonEloSystem';
 import { TrendingUp, TrendingDown, Award, Medal, Trophy, Star } from 'lucide-react';
 import '../styles/MobileStatistics.css'; // Base mobile-friendly styles
@@ -17,7 +17,7 @@ const EloStatistics = () => {
   const isMountedRef = useRef(true);
   const loadingTimeoutRef = useRef(null);
 
-  // Memoized callback to prevent recreation on every render
+  // Enhanced data loading with rating history for accurate charts
   const loadStatistics = useCallback(async () => {
     if (!isMountedRef.current) return;
     
@@ -33,43 +33,61 @@ const EloStatistics = () => {
         }
       }, 30000); // 30 second timeout
       
-      const [players, teams] = await Promise.all([
+      // Get players, teams, and matches with rating history for accurate charts
+      const [players, teams, matches] = await Promise.all([
         supabaseService.getPlayerRankingsByElo(),
-        supabaseService.getTeamRankingsByElo()
+        supabaseService.getTeamRankingsByElo(),
+        // CRITICAL: Get matches with rating history for accurate chart data
+        supabase.from('matches')
+          .select(`
+            *,
+            team1:teams!matches_team1_id_fkey(
+              id, name,
+              team_players(player_id, players(id, name))
+            ),
+            team2:teams!matches_team2_id_fkey(
+              id, name,
+              team_players(player_id, players(id, name))
+            ),
+            player_rating_history(*),
+            team_elo_history(*)
+          `)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: true })
       ]);
       
-      // Only update state if component is still mounted
       if (isMountedRef.current) {
         setPlayerRankings(players || []);
         setTeamRankings(teams || []);
         
+        // Clear timeout since we succeeded
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+        }
+
         // Generate skill level recommendations with error handling
         try {
           const recommendations = badmintonEloSystem.generateSkillLevelRecommendations(players || []);
           setSkillRecommendations(recommendations || []);
         } catch (recError) {
-          console.error('Error generating recommendations:', recError);
+          console.warn('Error generating skill recommendations:', recError);
           setSkillRecommendations([]);
         }
-        
-        // Clear the timeout since loading completed successfully
-        if (loadingTimeoutRef.current) {
-          clearTimeout(loadingTimeoutRef.current);
-          loadingTimeoutRef.current = null;
-        }
+        setLoading(false);
       }
-      
     } catch (error) {
       console.error('Error loading ELO statistics:', error);
       if (isMountedRef.current) {
-        setError(error.message || 'Failed to load statistics');
-      }
-    } finally {
-      if (isMountedRef.current) {
+        setError(`Failed to load statistics: ${error.message}`);
         setLoading(false);
+
+        // Clear timeout on error
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
       }
     }
-  }, []); // Empty dependency array since we don't depend on any props or state
+  }, []);
 
   // Load statistics on component mount
   useEffect(() => {
@@ -359,8 +377,8 @@ const EloStatistics = () => {
                     
                     <div className="rec-confidence">
                       <div className="confidence-bar">
-                        <div 
-                          className="confidence-fill" 
+                        <div
+                          className="confidence-fill"
                           style={{ width: `${rec.confidence}%` }}
                         ></div>
                       </div>

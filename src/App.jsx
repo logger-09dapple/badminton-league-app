@@ -9,6 +9,12 @@ import Teams from './pages/Teams';
 import Matches from './pages/Matches';
 import Statistics from './pages/Statistics';
 import Tournaments from './pages/Tournaments';
+import Setup from './pages/Setup';
+import { populateTeamEloHistory, clearTeamEloHistory, repopulateTeamEloHistory } from './scripts/populateTeamEloHistory';
+import { fixEloMismatch, clearDuplicateEloHistory, completeEloFix } from './utils/fixEloMismatch';
+import { processSequentialElo } from './utils/sequentialEloProcessor';
+import { processSequentialTeamElo } from './utils/sequentialTeamEloProcessor';
+import { processEnhancedSequentialElo } from './utils/enhancedSequentialEloProcessor';
 import './App.css';
 import './styles/MobileResponsive.css';
 import './styles/ScrollFix.css';
@@ -19,6 +25,19 @@ import './styles/MobileStatistics.css';
 import './styles/EloMobileStyles.css';
 import './styles/Charts.css';
 import './styles/TournamentBracket.css';
+
+// Make debug functions available globally in browser console
+if (typeof window !== 'undefined') {
+  window.populateTeamEloHistory = populateTeamEloHistory;
+  window.clearTeamEloHistory = clearTeamEloHistory;
+  window.repopulateTeamEloHistory = repopulateTeamEloHistory;
+  window.fixEloMismatch = fixEloMismatch;
+  window.clearDuplicateEloHistory = clearDuplicateEloHistory;
+  window.completeEloFix = completeEloFix;
+  window.processSequentialElo = processSequentialElo;
+  window.processSequentialTeamElo = processSequentialTeamElo;
+  window.processEnhancedSequentialElo = processEnhancedSequentialElo;
+}
 
 function App() {
   return (
@@ -35,6 +54,7 @@ function App() {
               <Route path="/matches" element={<Matches />} />
               <Route path="/statistics" element={<Statistics />} />
               <Route path="/tournaments" element={<Tournaments />} />
+              <Route path="/setup" element={<Setup />} />
             </Routes>
           </main>
         </div>
