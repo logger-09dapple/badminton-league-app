@@ -117,15 +117,35 @@ const MobileRankingCard = ({
             </div>
           </div>
           <div className="mobile-name-info">
-            <div className={isPlayer ? "mobile-player-name" : "mobile-team-name"} title={item.name}>
-              <span style={{ display: 'block' }}>{item.name}</span>
+            <div
+              className={isPlayer ? "mobile-player-name" : "mobile-team-name"}
+              title={item.name}
+              style={{
+                width: '100%',
+                display: 'block',
+                visibility: 'visible',
+                opacity: 1,
+                minHeight: '1.4rem'
+              }}
+            >
+              {item.name}
               {item.rank <= 3 && (
                 <Star className={isPlayer ? "top-player" : "top-team"} size={14} />
               )}
             </div>
             {!isPlayer && (
-              <div className="mobile-team-players" title={item.playerNames}>
-                <span style={{ display: 'block' }}>{item.playerNames}</span>
+              <div
+                className="mobile-team-players"
+                title={item.playerNames}
+                style={{
+                  width: '100%',
+                  display: 'block',
+                  visibility: 'visible',
+                  opacity: 1,
+                  minHeight: '1rem'
+                }}
+              >
+                {item.playerNames}
               </div>
             )}
           </div>

@@ -761,15 +761,28 @@
     margin: 0;
   }
 
-  /* Hide desktop view on mobile, show mobile view */
-  .desktop-view {
-    display: none;
-  }
-  
+  /* FORCE mobile view visibility */
   .mobile-view {
-    display: block;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .desktop-view {
+    display: none !important;
+  }
+
+  /* DEBUG: Add background color to verify mobile-name-info is visible */
+  .mobile-name-info {
+    background-color: rgba(255, 255, 0, 0.1) !important; /* Light yellow background for debugging */
   }
   
+  /* DEBUG: Add background to name elements */
+  .mobile-player-name,
+  .mobile-team-name {
+    background-color: rgba(0, 255, 0, 0.1) !important; /* Light green background for debugging */
+  }
+
   /* Hide desktop columns on mobile */
   .col-rank,
   .col-player,
@@ -895,15 +908,15 @@
     background-color: #f0f9ff;
   }
 
-  /* FIXED: Mobile card header with guaranteed name visibility */
+  /* FIXED: Mobile card header with proper width distribution */
   .mobile-card-header {
     display: flex !important;
-    align-items: flex-start !important;
-    justify-content: space-between !important;
+    align-items: center !important; /* Changed to center for better alignment */
+    justify-content: flex-start !important; /* Changed to flex-start */
     padding: 1rem !important;
     background: #f8fafc !important;
     border-bottom: 1px solid #e5e7eb !important;
-    gap: 0.75rem !important;
+    gap: 0.5rem !important; /* Reduced gap */
     min-height: 70px !important;
     flex-wrap: nowrap !important;
     width: 100% !important;
@@ -913,21 +926,20 @@
   .mobile-rank-info {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.25rem; /* Reduced gap */
     flex-shrink: 0;
-    min-width: 60px; /* Fixed width for rank */
+    width: 50px; /* FIXED: Reduced width for rank */
+    justify-content: flex-start;
   }
 
   .mobile-name-info {
     flex: 1 !important;
     min-width: 0 !important;
-    overflow: visible !important; /* FIXED: Changed from hidden to visible */
-    /* FIXED: Better space usage for names and ensure visibility */
-    max-width: calc(100% - 150px) !important;
-    padding-right: 0.5rem !important;
-    display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
+    overflow: hidden !important;
+    padding: 0 0.5rem !important; /* Padding on both sides */
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
   }
 
   .mobile-player-name,
@@ -936,12 +948,14 @@
     font-weight: 600 !important;
     color: #1e293b !important;
     margin: 0 !important;
-    /* FIXED: Force visibility and clear display */
+    padding: 0 !important;
+    /* FIXED: Ensure full width usage for names */
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     line-height: 1.4 !important;
-    max-width: 100% !important;
+    width: 100% !important;
+    max-width: none !important; /* Remove max-width constraint */
     display: block !important;
     min-height: 1.4rem !important;
     opacity: 1 !important;
@@ -953,12 +967,14 @@
     color: #64748b !important;
     font-style: italic !important;
     margin-top: 0.25rem !important;
-    /* FIXED: Force visibility */
+    padding: 0 !important;
+    /* FIXED: Ensure full width usage for team players */
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     line-height: 1.3 !important;
-    max-width: 100% !important;
+    width: 100% !important;
+    max-width: none !important; /* Remove max-width constraint */
     display: block !important;
     min-height: 1rem !important;
     opacity: 1 !important;
@@ -969,7 +985,7 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    min-width: 80px; /* Fixed width for skill badge */
+    width: 60px; /* FIXED: Reduced width for skill badge */
     justify-content: flex-end;
   }
 
@@ -980,13 +996,13 @@
     white-space: nowrap;
   }
 
-  /* FIXED: Mobile stats grid - bigger fonts and better width usage */
+  /* FIXED: Larger mobile stats grid fonts */
   .mobile-stats-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* 3 columns for better phone layout */
+    grid-template-columns: repeat(3, 1fr);
     gap: 0;
     background: white;
-    width: 100%; /* Ensure full width usage */
+    width: 100%;
   }
 
   .mobile-stat-item {
@@ -994,10 +1010,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 1rem 0.5rem; /* FIXED: Increased padding for bigger touch targets */
+    padding: 1.2rem 0.5rem; /* FIXED: Increased padding even more */
     border-right: 1px solid #f1f5f9;
     border-bottom: 1px solid #f1f5f9;
-    min-height: 75px; /* FIXED: Increased minimum height */
+    min-height: 85px; /* FIXED: Increased minimum height */
   }
 
   .mobile-stat-item:nth-child(3n) {
@@ -1009,20 +1025,20 @@
   }
 
   .mobile-stat-label {
-    font-size: 0.75rem; /* FIXED: Increased from 0.65rem */
+    font-size: 0.8rem; /* FIXED: Increased from 0.75rem */
     color: #6b7280;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 0.5rem; /* FIXED: Increased margin */
+    margin-bottom: 0.6rem; /* FIXED: Increased margin */
     text-align: center;
     line-height: 1.2;
     white-space: nowrap;
   }
 
   .mobile-stat-value {
-    font-size: 1.1rem; /* FIXED: Increased from 0.95rem */
-    font-weight: 600;
+    font-size: 1.25rem; /* FIXED: Increased from 1.1rem */
+    font-weight: 700; /* FIXED: Made bolder */
     color: #1e293b;
     text-align: center;
     line-height: 1.2;
@@ -1151,63 +1167,60 @@
   }
 
   .mobile-card-header {
-    padding: 0.75rem;
-    min-height: 65px;
-    gap: 0.5rem;
+    padding: 0.75rem !important;
+    min-height: 65px !important;
+    gap: 0.4rem !important; /* Reduced gap for small screens */
   }
 
   .mobile-rank-info {
-    min-width: 50px; /* Smaller rank area on tiny screens */
+    width: 45px; /* FIXED: Even smaller rank area on tiny screens */
   }
 
   .mobile-name-info {
-    /* FIXED: More space for names on small screens */
-    max-width: calc(100% - 120px) !important; /* FIXED: More room for names on small screens */
-    padding-right: 0.5rem !important;
+    padding: 0 0.3rem !important; /* Reduced padding for more space */
   }
 
   .mobile-skill-badge {
-    min-width: 70px; /* Smaller skill badge area */
+    width: 55px; /* FIXED: Smaller skill badge area */
   }
 
   .mobile-player-name,
   .mobile-team-name {
     font-size: 0.95rem !important;
     /* FIXED: Ensure names are visible on small screens */
-    max-width: 100% !important;
+    width: 100% !important;
+    max-width: none !important;
     display: block !important;
     min-height: 1.3rem !important;
-    opacity: 1 !important;
-    visibility: visible !important;
   }
 
   .mobile-team-players {
     font-size: 0.7rem !important;
-    max-width: 100% !important;
+    width: 100% !important;
+    max-width: none !important;
     display: block !important;
     min-height: 0.9rem !important;
-    opacity: 1 !important;
-    visibility: visible !important;
   }
 
-  /* FIXED: Better stats grid for very small screens */
+  /* FIXED: Even larger stats grid for very small screens */
   .mobile-stats-grid {
-    grid-template-columns: repeat(3, 1fr); /* Keep 3 columns even on small screens */
+    grid-template-columns: repeat(3, 1fr);
     width: 100%;
   }
 
   .mobile-stat-item {
-    padding: 0.8rem 0.4rem; /* FIXED: Better padding for small screens */
-    min-height: 70px; /* FIXED: Adequate height for larger fonts */
+    padding: 1rem 0.4rem; /* FIXED: Increased padding */
+    min-height: 80px; /* FIXED: Adequate height for larger fonts */
   }
 
   .mobile-stat-label {
-    font-size: 0.7rem; /* FIXED: Increased font size */
-    margin-bottom: 0.4rem;
+    font-size: 0.75rem; /* FIXED: Larger font size */
+    margin-bottom: 0.5rem; /* FIXED: More margin */
   }
 
   .mobile-stat-value {
-    font-size: 1rem; /* FIXED: Increased font size */
+    font-size: 1.15rem; /* FIXED: Larger font size */
+    font-weight: 700; /* FIXED: Bolder */
   }
 
   .metric-item {
