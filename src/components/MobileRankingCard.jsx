@@ -102,31 +102,34 @@ const MobileRankingCard = ({
       {/* Mobile view */}
       <div className="mobile-view">
         <div className="mobile-card-header">
-          <div className="mobile-rank-info">
-            <div className="rank-display">
-              {item.rank <= 3 && (
-                <Medal 
-                  className={`rank-icon ${
-                    item.rank === 1 ? 'gold' : 
-                    item.rank === 2 ? 'silver' : 'bronze'
-                  }`}
-                  size={18}
-                />
-              )}
-              <span className="rank-number">#{item.rank}</span>
+          {/* Top row: Rank and Skill Badge */}
+          <div className="mobile-rank-and-badge">
+            <div className="mobile-rank-info">
+              <div className="rank-display">
+                {item.rank <= 3 && (
+                  <Medal
+                    className={`rank-icon ${
+                      item.rank === 1 ? 'gold' :
+                      item.rank === 2 ? 'silver' : 'bronze'
+                    }`}
+                    size={18}
+                  />
+                )}
+                <span className="rank-number">#{item.rank}</span>
+              </div>
             </div>
+          <div className="mobile-skill-badge">
+            <span className={isPlayer ? `skill-badge skill-${item.skill_level}` : "skill-combo"}>
+              {isPlayer ? (item.skill_level || 'N/A') : (item.skill_combination || 'N/A')}
+            </span>
           </div>
+        </div>
+
+          {/* Bottom row: Name (full width) */}
           <div className="mobile-name-info">
             <div
               className={isPlayer ? "mobile-player-name" : "mobile-team-name"}
               title={item.name}
-              style={{
-                width: '100%',
-                display: 'block',
-                visibility: 'visible',
-                opacity: 1,
-                minHeight: '1.4rem'
-              }}
             >
               {item.name}
               {item.rank <= 3 && (
@@ -137,22 +140,10 @@ const MobileRankingCard = ({
               <div
                 className="mobile-team-players"
                 title={item.playerNames}
-                style={{
-                  width: '100%',
-                  display: 'block',
-                  visibility: 'visible',
-                  opacity: 1,
-                  minHeight: '1rem'
-                }}
               >
                 {item.playerNames}
               </div>
             )}
-          </div>
-          <div className="mobile-skill-badge">
-            <span className={isPlayer ? `skill-badge skill-${item.skill_level}` : "skill-combo"}>
-              {isPlayer ? (item.skill_level || 'N/A') : (item.skill_combination || 'N/A')}
-            </span>
           </div>
         </div>
         <div className="mobile-stats-grid">
@@ -160,8 +151,8 @@ const MobileRankingCard = ({
             <div className="mobile-stat-label">{isPlayer ? 'ELO Rating' : 'Team ELO'}</div>
             <div className="mobile-stat-value elo-rating">
               {isPlayer ? item.eloRating : item.teamEloRating}
-            </div>
           </div>
+        </div>
           <div className="mobile-stat-item">
             <div className="mobile-stat-label">Points</div>
             <div className="mobile-stat-value">{item.points || 0}</div>
