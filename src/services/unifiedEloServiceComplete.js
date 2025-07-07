@@ -554,7 +554,7 @@ class UnifiedEloService {
         .eq('status', 'completed')
         .not('team1_score', 'is', null)
         .not('team2_score', 'is', null)
-        .order('created_at', { ascending: true }); // CRITICAL: Chronological order
+        .order('updated_at', { ascending: true }); // CRITICAL: Chronological order
 
       if (matchesError) throw matchesError;
 
@@ -620,7 +620,7 @@ class UnifiedEloService {
           console.log(`\n🎮 Processing Match ${processedCount + 1}/${matches.length}:`);
           console.log(`   ${match.team1?.name} vs ${match.team2?.name}`);
           console.log(`   Score: ${match.team1_score}-${match.team2_score}`);
-          console.log(`   Date: ${new Date(match.created_at).toLocaleDateString()}`);
+          console.log(`   Date: ${new Date(match.udpated_at).toLocaleDateString()}`);
 
           // Validate match structure
           if (!match.team1?.team_players || !match.team2?.team_players ||
