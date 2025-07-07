@@ -101,25 +101,26 @@ const ChartsAndGraphs = ({
           yAxisID: 'y',
         },
         {
-          label: 'Points Scored',
-          data: performanceTrends.map(trend => trend.pointsScored),
-          borderColor: 'rgb(16, 185, 129)',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          label: 'ELO Rating',
+          data: performanceTrends.map(trend => trend.eloRating || 1500),
+          borderColor: 'rgb(147, 51, 234)',
+          backgroundColor: 'rgba(147, 51, 234, 0.1)',
           tension: 0.3,
           yAxisID: 'y1',
         },
       ],
     };
 
-    // Add ELO rating if available
-    if (performanceTrends.some(trend => trend.eloRating !== null)) {
+    // Add points scored as a third dataset (optional)
+    if (performanceTrends.some(trend => trend.pointsScored !== null)) {
       data.datasets.push({
-        label: 'ELO Rating',
-        data: performanceTrends.map(trend => trend.eloRating),
-        borderColor: 'rgb(147, 51, 234)',
-        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        label: 'Points Scored',
+        data: performanceTrends.map(trend => trend.pointsScored),
+        borderColor: 'rgb(16, 185, 129)',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
         tension: 0.3,
         yAxisID: 'y2',
+        hidden: true, // Hidden by default, can be toggled
       });
     }
 
@@ -176,7 +177,7 @@ const ChartsAndGraphs = ({
           position: 'right',
           title: {
             display: true,
-            text: 'Points Scored'
+            text: 'ELO Rating'
           },
           grid: {
             drawOnChartArea: false,
@@ -186,6 +187,10 @@ const ChartsAndGraphs = ({
           type: 'linear',
           display: false,
           position: 'right',
+          title: {
+            display: true,
+            text: 'Points Scored'
+          },
         }
       },
     };
