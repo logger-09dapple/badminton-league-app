@@ -8,17 +8,17 @@ const SequentialEloSetup = () => {
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
 
-  // FIXED: Complete setup using team processor to avoid duplicates
+  // FIXED: Complete setup using unified service for both players and teams
   const handleCompleteSetup = async () => {
     try {
     setStatus('running');
       setError(null);
       setResults(null);
 
-      console.log('🚀 Starting Complete Setup with Team ELO Processing...');
+      console.log('🚀 Starting Complete Setup with Unified ELO Processing...');
 
-      // Use the team processor for complete setup to avoid duplicate issues
-      const result = await teamEloProcessor.processCompleteElo();
+      // Use the unified service for complete setup to handle both players and teams
+      const result = await unifiedEloService.processSequentialElo();
       
       if (result.success) {
         setResults({
@@ -27,7 +27,7 @@ const SequentialEloSetup = () => {
           processedMatches: result.processedMatches,
           updatedPlayers: result.updatedPlayers,
           updatedTeams: result.updatedTeams,
-          message: result.message || `Complete setup successful! Updated ${result.updatedTeams} teams with ELO progression.`
+          message: result.message || `Complete setup successful! Updated ${result.updatedPlayers} players and ${result.updatedTeams} teams with ELO progression.`
         });
         setStatus('success');
       } else {
