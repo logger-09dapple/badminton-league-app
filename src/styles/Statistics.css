@@ -371,9 +371,17 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 1rem;
+  /* FIXED: Better name display handling */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 200px; /* Set a reasonable max width */
+}
+
+/* Function to shorten names when space is limited */
+.player-name[data-short="true"],
+.team-name[data-short="true"] {
+  max-width: 120px;
 }
 
 .team-players {
@@ -383,6 +391,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 200px; /* Set a reasonable max width */
 }
 
 .top-player,
@@ -909,13 +918,19 @@
     font-weight: 600;
     color: #1e293b;
     margin: 0;
-    display: block;
     line-height: 1.3;
+    /* FIXED: Better mobile name handling */
     word-wrap: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
     white-space: normal;
     max-width: 100%;
+    /* Add ellipsis for very long names */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
   .mobile-team-players {
@@ -924,11 +939,18 @@
     font-style: italic;
     margin-top: 0.25rem;
     line-height: 1.3;
+    /* FIXED: Better mobile team players handling */
     word-wrap: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
     white-space: normal;
     max-width: 100%;
+    /* Add ellipsis for very long team names */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
   .mobile-skill-badge {

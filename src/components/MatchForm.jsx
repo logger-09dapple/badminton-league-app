@@ -12,7 +12,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     team2Id: '',
     scheduledDate: '',
     status: 'completed',
-    // New fields for scores
+    // FIXED: Empty default values instead of defaulting to 0
     team1Score: '',
     team2Score: ''
   });
@@ -403,10 +403,10 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
                   value={formData.team1Score}
                   onChange={handleChange}
                   className={errors.team1Score ? 'error' : ''}
-                  placeholder="0"
+                  placeholder="Enter score"
                   maxLength="2"
-              required
-            />
+                  required
+                />
             {errors.team1Score && <span className="error-text">{errors.team1Score}</span>}
               </div>
           <div className="score-group">
@@ -418,7 +418,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
               value={formData.team2Score}
                 onChange={handleChange}
               className={errors.team2Score ? 'error' : ''}
-              placeholder="0"
+              placeholder="Enter score"
               maxLength="2"
               required
             />

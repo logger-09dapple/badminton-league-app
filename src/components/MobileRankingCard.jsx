@@ -1,11 +1,26 @@
 import React from 'react';
 import { Medal, Star } from 'lucide-react';
 
-const MobileRankingCard = ({ 
-  item, 
-  type = 'player', 
-  isSelected = false, 
-  onClick 
+// Helper function to shorten player names intelligently
+const shortenName = (name, maxLength = 20) => {
+  if (!name || name.length <= maxLength) return name;
+
+  const words = name.trim().split(' ');
+  if (words.length === 1) return name; // Single word, return as is
+
+  // Show first word + first letter of second word
+  const firstWord = words[0];
+  const secondInitial = words[1] ? words[1].charAt(0).toUpperCase() + '.' : '';
+  const shortened = `${firstWord} ${secondInitial}`;
+
+  return shortened.length <= maxLength ? shortened : firstWord;
+};
+
+const MobileRankingCard = ({
+  item,
+  type = 'player',
+  isSelected = false,
+  onClick
 }) => {
   const isPlayer = type === 'player';
   
@@ -32,13 +47,17 @@ const MobileRankingCard = ({
         </div>
         <div className={isPlayer ? "col-player" : "col-team"}>
           <div className={isPlayer ? "player-info" : "team-info"}>
-            <div className={isPlayer ? "player-name" : "team-name"}>
-              {item.name}
+            <div className={isPlayer ? "player-name" : "team-name"} title={item.name}>
+              {shortenName(item.name, 25)}
               {item.rank <= 3 && (
                 <Star className={isPlayer ? "top-player" : "top-team"} size={14} />
               )}
             </div>
-            {!isPlayer && <div className="team-players">{item.playerNames}</div>}
+            {!isPlayer && (
+              <div className="team-players" title={item.playerNames}>
+                {shortenName(item.playerNames, 30)}
+              </div>
+            )}
           </div>
         </div>
         <div className="col-skill">
@@ -88,14 +107,16 @@ const MobileRankingCard = ({
             </div>
           </div>
           <div className="mobile-name-info">
-            <div className={isPlayer ? "mobile-player-name" : "mobile-team-name"}>
-              {item.name}
+            <div className={isPlayer ? "mobile-player-name" : "mobile-team-name"} title={item.name}>
+              {shortenName(item.name, 30)}
               {item.rank <= 3 && (
                 <Star className={isPlayer ? "top-player" : "top-team"} size={14} />
               )}
             </div>
             {!isPlayer && (
-              <div className="mobile-team-players">{item.playerNames}</div>
+              <div className="mobile-team-players" title={item.playerNames}>
+                {shortenName(item.playerNames, 35)}
+              </div>
             )}
           </div>
           <div className="mobile-skill-badge">

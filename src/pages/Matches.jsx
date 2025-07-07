@@ -371,11 +371,22 @@ const getSelectedPlayerNames = () => {
                       <span className="status-badge status-completed">
                         Completed
                       </span>
-                      {match.scheduled_date && (
-                        <span className="match-date">
-                          {new Date(match.scheduled_date).toLocaleDateString()}
-                        </span>
-                      )}
+                      <span className="match-date">
+                        {match.created_at
+                          ? new Date(match.created_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                          : match.scheduled_date
+                            ? new Date(match.scheduled_date).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })
+                            : 'No date'
+                        }
+                      </span>
                     </div>
                     <div className="match-actions">
                       <button
@@ -441,7 +452,21 @@ const getSelectedPlayerNames = () => {
                     </div>
                     <div className="match-info">
                       <span className="status-badge status-scheduled">
-                        {match.scheduled_date ? `Scheduled: ${new Date(match.scheduled_date).toLocaleDateString()}` : 'Not Scheduled'}
+                        {match.scheduled_date ? `Scheduled: ${new Date(match.scheduled_date).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}` : 'Not Scheduled'}
+                      </span>
+                      <span className="match-date">
+                        Created: {match.created_at
+                          ? new Date(match.created_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                          : 'No date'
+                        }
                       </span>
                     </div>
                     <div className="match-actions">
