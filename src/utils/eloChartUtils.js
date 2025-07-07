@@ -18,7 +18,7 @@ export const getPlayerEloProgression = async (playerId, matches, players) => {
       return match.team1?.team_players?.some(tp => tp.player_id === playerId) ||
              match.team2?.team_players?.some(tp => tp.player_id === playerId);
     })
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // CHRONOLOGICAL ORDER: oldest first
+    .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at)); // CHRONOLOGICAL ORDER: oldest first
 
   if (relevantMatches.length === 0) return [];
 
@@ -145,7 +145,7 @@ export const getTeamEloProgression = async (teamId, matches, teams) => {
       }
       return isRelevant;
     })
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // CHRONOLOGICAL ORDER: oldest first
+    .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at)); // CHRONOLOGICAL ORDER: oldest first
 
   console.log(`🎯 Filtered to ${relevantMatches.length} relevant matches for team ${teamId}`);
   console.log(`   First match: ${relevantMatches[0]?.created_at}`);
@@ -269,7 +269,7 @@ const getFallbackPlayerProgression = (playerId, matches, players) => {
   let runningStats = { wins: 0, losses: 0, totalPoints: 0, totalMatches: 0 };
   
   // ENSURE matches are sorted chronologically for fallback too
-  const sortedMatches = matches.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const sortedMatches = matches.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
 
   // Get player info for proper initial ELO
   const player = players?.find(p => p.id === playerId);
@@ -349,7 +349,7 @@ const getFallbackTeamProgression = (teamId, matches, teams) => {
   let runningStats = { wins: 0, losses: 0, totalPoints: 0, totalMatches: 0 };
   
   // ENSURE matches are sorted chronologically for fallback too
-  const sortedMatches = matches.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const sortedMatches = matches.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
 
   // Get team info
   const team = teams?.find(t => t.id === teamId);
