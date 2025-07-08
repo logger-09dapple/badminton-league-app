@@ -245,13 +245,16 @@
   border-radius: 1rem;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.table-header {
+    width: 100%;
+  max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .table-header {
   display: grid;
   grid-template-columns: 60px 1fr 100px 80px 80px 80px 80px 80px 80px;
-  gap: 1rem;
-  padding: 1rem;
+    gap: 1rem;
+    padding: 1rem;
   background: #f8fafc;
   border-bottom: 2px solid #e5e7eb;
   font-weight: 600;
@@ -259,17 +262,17 @@
   font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
+  }
+  
 .table-header.team-header {
   grid-template-columns: 60px 1fr 100px 80px 80px 80px 80px 80px;
-}
-
+  }
+  
 .table-body {
   max-height: 600px;
   overflow-y: auto;
-}
-
+  }
+  
 .table-row {
   display: grid;
   grid-template-columns: 60px 1fr 100px 80px 80px 80px 80px 80px 80px;
@@ -753,12 +756,15 @@
   }
 }
   
-/* Override max-width on mobile for full screen usage */
+/* FIXED: Enhanced mobile layout for full width usage */
 @media (max-width: 768px) {
+  /* Ensure page uses full width */
   .statistics-page {
     padding: 1rem 0;
     max-width: 100%;
+    width: 100%;
     margin: 0;
+    box-sizing: border-box;
   }
 
   /* FORCE mobile view visibility */
@@ -772,15 +778,20 @@
     display: none !important;
   }
 
-  /* DEBUG: Add background color to verify mobile-name-info is visible */
+  /* DEBUG: Identify constraining containers */
   .mobile-name-info {
-    background-color: rgba(255, 255, 0, 0.1) !important; /* Light yellow background for debugging */
+    border: 2px solid red !important; /* Temporary debug border */
+    background-color: rgba(255, 255, 0, 0.2) !important; /* Yellow background */
   }
   
-  /* DEBUG: Add background to name elements */
   .mobile-player-name,
   .mobile-team-name {
-    background-color: rgba(0, 255, 0, 0.1) !important; /* Light green background for debugging */
+    border: 1px solid blue !important; /* Blue border for name elements */
+    background-color: rgba(0, 255, 0, 0.2) !important; /* Light green background */
+  }
+
+  .table-row {
+    border: 3px solid purple !important; /* Purple border for card container */
   }
 
   /* Hide desktop columns on mobile */
@@ -791,7 +802,6 @@
   .col-stat {
     display: none;
   }
-  
   .page-header {
     flex-direction: column;
     gap: 1rem;
@@ -836,6 +846,9 @@
   .rankings-section,
   .analytics-section {
     padding: 0 0.5rem;
+    width: 100%; /* Ensure full width */
+    max-width: 100%; /* Remove constraints */
+    box-sizing: border-box;
   }
   
   .overview-grid {
@@ -883,24 +896,28 @@
     display: none;
   }
   
+  /* FIXED: Full width mobile cards - remove width constraints */
   .table-body {
     max-height: none;
-    /* FIXED: Use full width with proper margins */
-    margin: 0 -0.5rem; /* Negative margin to expand to screen edges */
+    /* FIXED: Ensure full screen width usage */
+    margin: 0; /* Remove negative margins that might cause issues */
     padding: 0;
+    width: 100%;
   }
+
   .table-row {
     display: block;
     padding: 0;
-    /* FIXED: Full width mobile cards with minimal margins */
-    margin: 0 0.5rem 0.75rem 0.5rem; /* Only side margins, no horizontal shrinking */
+    /* FIXED: Full width mobile cards */
+    margin: 0 0 0.75rem 0; /* Remove side margins */
     background: white;
     border-radius: 0.75rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     border: 1px solid #e5e7eb;
     overflow: hidden;
-    width: calc(100% - 1rem); /* Full width minus minimal margins */
-    max-width: none; /* Remove any max-width constraints */
+    width: 100%; /* Full width */
+    max-width: 100%; /* Ensure no constraint */
+    box-sizing: border-box;
   }
   
   .table-row.selected {
@@ -908,19 +925,21 @@
     background-color: #f0f9ff;
   }
 
-  /* ALTERNATIVE: Stack mobile header vertically to prevent overlap */
+  /* FIXED: Mobile card header - full width, no constraints */
   .mobile-card-header {
     display: flex !important;
-    flex-direction: column !important; /* FIXED: Stack vertically */
-    align-items: stretch !important;
+    flex-direction: column !important;
+    align-items: stretch !important; /* Changed to stretch for full width */
     justify-content: flex-start !important;
     padding: 1rem !important;
     background: #f8fafc !important;
     border-bottom: 1px solid #e5e7eb !important;
-    gap: 0.5rem !important;
+    gap: 0.75rem !important;
     min-height: 80px !important;
     width: 100% !important;
+    max-width: 100% !important;
     box-sizing: border-box !important;
+    overflow: visible !important; /* Allow content to be visible */
   }
 
   /* Top row: Rank and Skill Badge */
@@ -946,33 +965,39 @@
   }
 
   /* Bottom row: Name (full width) */
+  /* FIXED: Remove width constraints from mobile name area */
   .mobile-name-info {
     flex: 1 !important;
     width: 100% !important;
-    overflow: hidden !important;
+    max-width: 100% !important; /* Remove any max-width */
+    overflow: visible !important; /* Allow content to be visible */
     padding: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: flex-start !important;
+    margin: 0 !important;
+    display: block !important; /* Changed from flex to block */
+    background: transparent !important; /* Remove any background constraints */
+    box-sizing: border-box !important;
   }
 
   .mobile-player-name,
   .mobile-team-name {
-    font-size: 1rem !important;
+    font-size: 1.1rem !important; /* Slightly larger font */
     font-weight: 600 !important;
     color: #1e293b !important;
     margin: 0 !important;
-    padding: 0 !important;
-    /* FIXED: Full width with no overlap issues */
+    padding: 0.5rem 0 !important; /* Add some vertical padding */
+    /* FIXED: Ensure full width and visibility */
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     line-height: 1.4 !important;
     width: 100% !important;
+    max-width: 100% !important;
     display: block !important;
-    min-height: 1.4rem !important;
+    min-height: 2rem !important; /* Increased min height */
     opacity: 1 !important;
     visibility: visible !important;
+    background: transparent !important;
+    box-sizing: border-box !important;
   }
 
   .mobile-team-players {
@@ -1098,6 +1123,9 @@
   .rankings-section,
   .analytics-section {
     padding: 0 0.25rem;
+    width: 100%; /* Ensure full width */
+    max-width: 100%; /* Remove constraints */
+    box-sizing: border-box;
   }
   
   .tab-navigation {
@@ -1161,20 +1189,27 @@
     font-size: 1.1rem;
   }
 
-  /* FIXED: Full width mobile cards on small screens */
+  /* FIXED: Full width on small screens too */
   .table-body {
-    margin: 0 -0.25rem; /* Expand to screen edges on small screens */
+    margin: 0; /* Remove any margin constraints */
   }
 
   .table-row {
-    margin: 0 0.25rem 0.75rem 0.25rem; /* Minimal margins on small screens */
-    width: calc(100% - 0.5rem); /* Almost full width */
+    margin: 0 0 0.75rem 0; /* Remove side margins on small screens too */
+    width: 100%; /* Full width */
   }
 
   .mobile-card-header {
     padding: 0.75rem !important;
     min-height: 70px !important;
-    gap: 0.4rem !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .mobile-name-info {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .mobile-rank-and-badge {

@@ -1,29 +1,28 @@
 import React from 'react';
 import { Medal, Star } from 'lucide-react';
 
-// Helper function to shorten player names intelligently
-const shortenName = (name, maxLength = 25) => {
+// Helper function to intelligently shorten names for mobile
+const getDisplayName = (name, maxLength = 25) => {
   if (!name || name.length <= maxLength) return name;
 
   const words = name.trim().split(' ');
   if (words.length === 1) {
-    // Single word - truncate if too long
+    // Single word - show first part with ellipsis if too long
     return name.length > maxLength ? name.substring(0, maxLength - 1) + '…' : name;
   }
 
-  // Multiple words - show first word + initials
+  // Multiple words - show first word + initial of second word
   const firstWord = words[0];
-  const initials = words.slice(1).map(word => word.charAt(0).toUpperCase()).join('');
-  const shortened = initials ? `${firstWord} ${initials}.` : firstWord;
+  const secondInitial = words[1] ? ` ${words[1].charAt(0).toUpperCase()}.` : '';
+  const result = `${firstWord}${secondInitial}`;
 
   // If still too long, truncate first word
-  if (shortened.length > maxLength) {
-    const maxFirstWord = maxLength - (initials ? initials.length + 2 : 0);
-    const truncatedFirst = firstWord.substring(0, Math.max(3, maxFirstWord));
-    return initials ? `${truncatedFirst} ${initials}.` : truncatedFirst;
+  if (result.length > maxLength) {
+    const maxFirstWordLength = maxLength - (secondInitial.length);
+    return `${firstWord.substring(0, Math.max(3, maxFirstWordLength))}${secondInitial}`;
   }
 
-  return shortened;
+  return result;
 };
 
 const MobileRankingCard = ({
@@ -58,14 +57,14 @@ const MobileRankingCard = ({
         <div className={isPlayer ? "col-player" : "col-team"}>
           <div className={isPlayer ? "player-info" : "team-info"}>
             <div className={isPlayer ? "player-name" : "team-name"} title={item.name}>
-              {shortenName(item.name, 30)}
+              {getDisplayName(item.name, 30)}
               {item.rank <= 3 && (
                 <Star className={isPlayer ? "top-player" : "top-team"} size={14} />
               )}
             </div>
             {!isPlayer && (
               <div className="team-players" title={item.playerNames}>
-                {shortenName(item.playerNames, 40)}
+                {getDisplayName(item.playerNames, 40)}
               </div>
             )}
           </div>
@@ -130,18 +129,36 @@ const MobileRankingCard = ({
             <div
               className={isPlayer ? "mobile-player-name" : "mobile-team-name"}
               title={item.name}
+              style={{
+                width: '100%',
+                maxWidth: '100%',
+                display: 'block',
+                boxSizing: 'border-box',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
             >
-              {item.name}
+              {getDisplayName(item.name, 30)}
               {item.rank <= 3 && (
-                <Star className={isPlayer ? "top-player" : "top-team"} size={14} />
+                <Star className={isPlayer ? "top-player" : "top-team"} size={14} style={{ marginLeft: '0.5rem' }} />
               )}
             </div>
             {!isPlayer && (
               <div
                 className="mobile-team-players"
                 title={item.playerNames}
+                style={{
+                  width: '100%',
+                  maxWidth: '100%',
+                  display: 'block',
+                  boxSizing: 'border-box',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
               >
-                {item.playerNames}
+                {getDisplayName(item.playerNames, 35)}
               </div>
             )}
           </div>
