@@ -191,6 +191,13 @@ const ChartsAndGraphs = ({
             display: true,
             text: 'Points Scored'
           },
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+            callback: function(value) {
+              return Number.isInteger(value) ? value : '';
+            }
+          }
         }
       },
     };
