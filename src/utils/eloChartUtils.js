@@ -4,7 +4,7 @@ import { supabase } from '../services/supabaseService';
  * Enhanced ELO chart utility that uses actual stored ELO history
  * Shows real match-by-match ups and downs, not linear progression
  */
-
+ 
 /**
  * Get actual player ELO progression from stored history
  */
@@ -98,7 +98,7 @@ export const getPlayerEloProgression = async (playerId, matches, players) => {
 
       progression.push({
         matchNumber: index + 1,
-        date: match.created_at,
+        date: match.updated_at || match.created_at, // Use updated_at for completed matches (when score was added)
         matchLabel: matchLabel,
         winRate: (runningStats.wins / runningStats.totalMatches) * 100,
         averagePoints: runningStats.totalPoints / runningStats.totalMatches,
@@ -232,7 +232,7 @@ export const getTeamEloProgression = async (teamId, matches, teams) => {
 
       progression.push({
         matchNumber: index + 1,
-        date: match.created_at,
+        date: match.updated_at || match.created_at, // Use updated_at for completed matches (when score was added)
         matchLabel: matchLabel,
         winRate: (runningStats.wins / runningStats.totalMatches) * 100,
         averagePoints: runningStats.totalPoints / runningStats.totalMatches,
@@ -317,7 +317,7 @@ const getFallbackPlayerProgression = (playerId, matches, players) => {
     console.log(`   Match ${index + 1} (${new Date(match.created_at).toLocaleDateString()}): ${isWin ? 'WIN' : 'LOSS'} → ${previousElo} ${eloChange > 0 ? '+' : ''}${eloChange} = ${currentElo}`);
     progression.push({
       matchNumber: index + 1,
-      date: match.created_at,
+      date: match.updated_at || match.created_at, // Use updated_at for completed matches (when score was added)
       matchLabel: matchLabel,
       winRate: (runningStats.wins / runningStats.totalMatches) * 100,
       averagePoints: runningStats.totalPoints / runningStats.totalMatches,
@@ -394,7 +394,7 @@ const getFallbackTeamProgression = (teamId, matches, teams) => {
     console.log(`   Match ${index + 1} (${new Date(match.created_at).toLocaleDateString()}): ${isWin ? 'WIN' : 'LOSS'} → ${previousElo} ${eloChange > 0 ? '+' : ''}${eloChange} = ${currentElo}`);
     progression.push({
       matchNumber: index + 1,
-      date: match.created_at,
+      date: match.updated_at || match.created_at, // Use updated_at for completed matches (when score was added)
       matchLabel: matchLabel,
       winRate: (runningStats.wins / runningStats.totalMatches) * 100,
       averagePoints: runningStats.totalPoints / runningStats.totalMatches,

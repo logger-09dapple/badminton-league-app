@@ -51,9 +51,11 @@ const RecentMatches = ({ matches }) => {
               <div className="match-details">
                 <div className="match-info">
                   <Calendar size={16} />
-                  <span>{formatDate(match.scheduled_date)}</span>
+                  <span>{match.status === 'completed' && match.updated_at
+                    ? formatDate(match.updated_at)
+                    : formatDate(match.scheduled_date)
+                  }</span>
                 </div>
-
                 {match.status === 'completed' && (
                   <div className="match-score">
                     <Trophy size={16} />

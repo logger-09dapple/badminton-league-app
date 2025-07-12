@@ -4,8 +4,8 @@ import Modal from './Modal';
 
 const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
   const [scores, setScores] = useState({
-    team1Score: match.team1_score || 0,
-    team2Score: match.team2_score || 0
+    team1Score: match.team1_score || '',
+    team2Score: match.team2_score || ''
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);

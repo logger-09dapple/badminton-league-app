@@ -372,19 +372,25 @@ const getSelectedPlayerNames = () => {
                         Completed
                       </span>
                       <span className="match-date">
-                        {match.created_at
-                          ? new Date(match.created_at).toLocaleDateString('en-US', {
+                        {match.status === 'completed' && match.updated_at
+                          ? new Date(match.updated_at).toLocaleDateString('en-US', {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric'
                             })
-                          : match.scheduled_date
-                            ? new Date(match.scheduled_date).toLocaleDateString('en-US', {
+                          : match.created_at
+                            ? new Date(match.created_at).toLocaleDateString('en-US', {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric'
                               })
-                            : 'No date'
+                            : match.scheduled_date
+                              ? new Date(match.scheduled_date).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                                })
+                              : 'No date'
                         }
                       </span>
                     </div>

@@ -67,7 +67,10 @@ const MatchList = ({ matches, teams, onEdit, onSchedule, onUpdateScore }) => {
 
               <div className="match-date">
                 <Calendar size={16} />
-                <span>{formatDate(match.scheduled_date)}</span>
+                <span>{match.status === 'completed' && match.updated_at
+                  ? formatDate(match.updated_at)
+                  : formatDate(match.scheduled_date)
+                }</span>
               </div>
 
               <div className="match-status">
@@ -84,8 +87,8 @@ const MatchList = ({ matches, teams, onEdit, onSchedule, onUpdateScore }) => {
                       <div className="winner">
                         <Trophy size={14} />
                         <span>
-                          {match.winner_team_id === match.team1_id 
-                            ? match.team1?.name 
+                          {match.winner_team_id === match.team1_id
+                            ? match.team1?.name
                             : match.team2?.name
                           }
                         </span>
