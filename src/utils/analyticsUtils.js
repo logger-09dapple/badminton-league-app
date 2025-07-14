@@ -362,8 +362,31 @@ export const analyticsUtils = {
 
   // Helper methods
   didPlayerWin: (match, playerId) => {
+    // Enhanced win detection with better error handling
+    try {
+      if (!match || !playerId) return false;
+
+      // Check if match is completed and has a winner
+      if (match.status !== 'completed' || !match.winner_team_id) return false;
+
+      // Check team1 players
     const playerInTeam1 = match.team1?.team_players?.some(tp => tp.player_id === playerId);
-    return playerInTeam1 ? match.winner_team_id === match.team1_id : match.winner_team_id === match.team2_id;
+      if (playerInTeam1) {
+        return match.winner_team_id === match.team1_id;
+      }
+
+      // Check team2 players
+      const playerInTeam2 = match.team2?.team_players?.some(tp => tp.player_id === playerId);
+      if (playerInTeam2) {
+        return match.winner_team_id === match.team2_id;
+    }
+
+      // Player not found in either team
+      return false;
+    } catch (error) {
+      console.warn(`Error determining if player ${playerId} won match:`, error);
+      return false;
+    }
   },
 
   getPointsScored: (match, playerId, teamId) => {

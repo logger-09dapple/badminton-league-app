@@ -58,9 +58,9 @@ const Statistics = () => {
           return match.team1?.team_players?.some(tp => tp.player_id === playerId) ||
                  match.team2?.team_players?.some(tp => tp.player_id === playerId);
         })
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 5);
-      
+        // FIXED: Use updated_at for proper chronological order of when matches were actually played
+        .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+        .slice(0, 5); // Take last 5 matches
       if (recentMatches.length === 0) return 'N/A';
       
       const wins = recentMatches.filter(match => 
@@ -72,6 +72,28 @@ const Statistics = () => {
       console.warn(`Error calculating recent form for player ${playerId}:`, error);
       return 'N/A';
     }
+  }, []);
+
+  // NEW: Calculate recent form for teams
+  const calculateTeamRecentForm = useCallback((teamId, matchesData) => {
+    if (!matchesData) return 'N/A';
+    try {
+      const recentMatches = matchesData
+        .filter(match => match.status === 'completed') // Only completed matches
+        .filter(match => match.team1_id === teamId || match.team2_id === teamId)
+        // Use updated_at for proper chronological order of when matches were actually played
+        .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+        .slice(0, 5); // Take last 5 matches
+
+      if (recentMatches.length === 0) return 'N/A';
+
+      const wins = recentMatches.filter(match => match.winner_team_id === teamId).length;
+
+      return `${wins}/${recentMatches.length}`;
+      } catch (error) {
+      console.warn(`Error calculating team recent form for team ${teamId}:`, error);
+      return 'N/A';
+      }
   }, []);
 
   // Calculate analytics data
@@ -90,7 +112,6 @@ const Statistics = () => {
   // Filter matches by date
   const filteredMatches = useMemo(() => {
     if (!matches || dateFilter === 'all') return matches;
-    
     try {
       const now = new Date();
       const filterDate = new Date();
@@ -238,7 +259,8 @@ const Statistics = () => {
               playerNames,
               teamEloRating,
               rank: 0, // Will be calculated after sorting
-              hasPlayedMatches: (team.matches_played || 0) > 0
+              hasPlayedMatches: (team.matches_played || 0) > 0,
+              recentForm: calculateTeamRecentForm(team.id, filteredMatches) // NEW: Add team form
             };
           } catch (error) {
             console.warn(`Error processing team ${team?.name}:`, error);
@@ -248,7 +270,8 @@ const Statistics = () => {
               playerNames: 'No Players',
               teamEloRating: 1500,
               rank: 0,
-              hasPlayedMatches: false
+              hasPlayedMatches: false,
+              recentForm: 'N/A' // NEW: Add default form
             };
           }
         })
@@ -272,8 +295,7 @@ const Statistics = () => {
       console.warn('Error calculating team stats:', error);
       return [];
     }
-  }, [teams, players]);
-
+  }, [teams, players, calculateTeamRecentForm, filteredMatches]);
   // Calculate performance trends for selected entity - Now uses actual ELO history
   const performanceTrends = useMemo(() => {
     if (!filteredMatches) return [];
@@ -756,6 +778,7 @@ const Statistics = () => {
               <div className="col-stat">Matches</div>
               <div className="col-stat">Wins</div>
               <div className="col-stat">Win Rate</div>
+              <div className="col-stat">Form</div>
             </div>
             
             {teamStats.length === 0 ? (

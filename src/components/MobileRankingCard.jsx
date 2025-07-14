@@ -35,7 +35,7 @@ const MobileRankingCard = ({
   
   return (
     <div
-      className={`table-row ${isSelected ? 'selected' : ''}`}
+      className={`table-row ${isSelected ? 'selected' : ''} ${!isPlayer ? 'team-row' : ''}`}
       onClick={onClick}
     >
       {/* Desktop view */}
@@ -91,11 +91,9 @@ const MobileRankingCard = ({
         <div className="col-stat" data-label="Win Rate">
           <span className="stat-value">{item.winRate}%</span>
         </div>
-        {isPlayer && (
           <div className="col-stat" data-label="Form">
-            <span className="stat-value">{item.recentForm}</span>
+          <span className="stat-value">{isPlayer ? item.recentForm : item.recentForm}</span>
           </div>
-        )}
       </div>
 
       {/* Mobile view */}
@@ -187,9 +185,9 @@ const MobileRankingCard = ({
             <div className="mobile-stat-value">{item.winRate}%</div>
           </div>
           <div className="mobile-stat-item">
-            <div className="mobile-stat-label">{isPlayer ? 'Recent Form' : 'Activity'}</div>
+            <div className="mobile-stat-label">{isPlayer ? 'Recent Form' : 'Recent Form'}</div>
             <div className="mobile-stat-value">
-              {isPlayer ? item.recentForm : (item.matches_played > 0 ? 'Active' : 'Inactive')}
+              {isPlayer ? item.recentForm : item.recentForm}
             </div>
           </div>
         </div>

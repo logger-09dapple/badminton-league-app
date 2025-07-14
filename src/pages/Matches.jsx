@@ -235,7 +235,15 @@ const getSelectedPlayerNames = () => {
   }
 
   const unplayedMatches = filteredMatches.filter(match => match.status === 'scheduled');
-  const completedMatches = filteredMatches.filter(match => match.status === 'completed');
+  const completedMatches = filteredMatches
+    .filter(match => match.status === 'completed')
+    // FIXED: Sort completed matches by score update date (most recent first)
+    .sort((a, b) => {
+      // Use updated_at for completed matches (when score was recorded)
+      const dateA = new Date(a.updated_at || a.created_at);
+      const dateB = new Date(b.updated_at || b.created_at);
+      return dateB - dateA; // Newest first (descending order)
+    });
 
   return (
     <div className="matches-page">
