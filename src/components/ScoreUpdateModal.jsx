@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { validationUtils } from '../utils/validationUtils';
 import Modal from './Modal';
+import ScoreSlider from './ScoreSlider';
 
 const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
   const [scores, setScores] = useState({
@@ -73,45 +74,25 @@ const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
         )}
 
         <div className="teams-scores">
-          <div className="team-score-input">
-            <label>{match.team1?.name || 'Team 1'}</label>
-            <div className="score-slider-container">
-              <input
-                type="range"
-                min="0"
-                max="30"
+          <ScoreSlider
                 value={scores.team1Score || 0}
-              onChange={(e) => handleScoreChange('team1', e.target.value)}
-                className="score-slider"
+            onChange={(value) => setScores(prev => ({ ...prev, team1Score: value }))}
+            min={0}
+            max={30}
+            teamName={match.team1?.name || 'Team 1'}
+            error={errors.team1Score}
             />
-              <div className="score-display">{scores.team1Score || 0}</div>
-            </div>
-            {errors.team1Score && (
-              <span className="error-text">{errors.team1Score}</span>
-            )}
-          </div>
-
           <div className="vs-separator">VS</div>
 
-          <div className="team-score-input">
-            <label>{match.team2?.name || 'Team 2'}</label>
-            <div className="score-slider-container">
-              <input
-                type="range"
-                min="0"
-                max="30"
-                value={scores.team2Score || 0}
-                onChange={(e) => handleScoreChange('team2', e.target.value)}
-                className="score-slider"
-              />
-              <div className="score-display">{scores.team2Score || 0}</div>
+          <ScoreSlider
+            value={scores.team2Score || 0}
+            onChange={(value) => setScores(prev => ({ ...prev, team2Score: value }))}
+            min={0}
+            max={30}
+            teamName={match.team2?.name || 'Team 2'}
+            error={errors.team2Score}
+          />
           </div>
-            {errors.team2Score && (
-              <span className="error-text">{errors.team2Score}</span>
-        )}
-        </div>
-        </div>
-
         {scores.team1Score !== scores.team2Score && (
           <div className="winner-display">
             Winner: {scores.team1Score > scores.team2Score

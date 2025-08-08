@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { validationUtils } from '../utils/validationUtils';
 import { formatInputDate, formatDisplayDate, parseInputDate } from '../utils/dateUtils';
 import { Users, ArrowRight, CheckCircle } from 'lucide-react';
+import ScoreSlider from './ScoreSlider';
 
 const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = false }) => {
   const [selectedPlayers, setSelectedPlayers] = useState(new Set());
@@ -410,42 +411,24 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
             </div>
             
             <div className="score-inputs">
-              <div className="score-group">
-                <label htmlFor="team1Score">{team1.name} Score *</label>
-            <div className="score-slider-container">
-                <input
-                type="range"
-                  id="team1Score"
-                  name="team1Score"
-                min="0"
-                max="30"
-                value={formData.team1Score || 0}
-                onChange={(e) => setFormData(prev => ({ ...prev, team1Score: e.target.value }))}
-                className="score-slider"
+          <ScoreSlider
+            value={parseInt(formData.team1Score) || 0}
+            onChange={(value) => setFormData(prev => ({ ...prev, team1Score: value.toString() }))}
+            min={0}
+            max={30}
+            teamName={team1.name}
+            error={errors.team1Score}
                 />
-              <div className="score-display">{formData.team1Score || 0}</div>
-              </div>
-            {errors.team1Score && <span className="error-text">{errors.team1Score}</span>}
-            </div>
-          <div className="score-group">
-            <label htmlFor="team2Score">{team2.name} Score *</label>
-            <div className="score-slider-container">
-              <input
-                type="range"
-                id="team2Score"
-                name="team2Score"
-                min="0"
-                max="30"
-                value={formData.team2Score || 0}
-                onChange={(e) => setFormData(prev => ({ ...prev, team2Score: e.target.value }))}
-                className="score-slider"
-              />
-              <div className="score-display">{formData.team2Score || 0}</div>
-            </div>
-            {errors.team2Score && <span className="error-text">{errors.team2Score}</span>}
-          </div>
-        </div>
 
+          <ScoreSlider
+            value={parseInt(formData.team2Score) || 0}
+            onChange={(value) => setFormData(prev => ({ ...prev, team2Score: value.toString() }))}
+            min={0}
+            max={30}
+            teamName={team2.name}
+            error={errors.team2Score}
+              />
+            </div>
         {/* Badminton Scoring Rules */}
         <div className="scoring-rules">
           <h4>Badminton Scoring Rules:</h4>

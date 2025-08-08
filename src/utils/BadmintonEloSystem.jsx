@@ -84,7 +84,7 @@ export class BadmintonEloSystem {
   }
 
   /**
-   * Validate match scores
+   * Validate match scores - FIXED for proper badminton rules
    */
   validateMatchScores(team1Score, team2Score) {
     const errors = [];
@@ -105,20 +105,36 @@ export class BadmintonEloSystem {
       errors.push('Scores cannot exceed 30 (badminton maximum)');
     }
 
-    // Check for valid badminton score completion
+    // FIXED: Check for valid badminton score completion
     const higher = Math.max(team1Score, team2Score);
     const lower = Math.min(team1Score, team2Score);
 
+    // No ties allowed
+    if (team1Score === team2Score) {
+      errors.push('Scores cannot be tied in badminton');
+    return { isValid: errors.length === 0, errors };
+  }
+
+    // Winner must have at least 21 points
     if (higher < 21) {
       errors.push('Match not complete - winner must have at least 21 points');
-    } else if (higher < 30 && (higher - lower) < 2) {
-      errors.push('Match not complete - winner must win by at least 2 points');
-    } else if (higher === 30 && lower !== 29) {
-      errors.push('Invalid score - at 30 points, opponent must have 29 points');
+      return { isValid: errors.length === 0, errors };
+    }
+
+    // FIXED: At 30 points, game ends regardless of opponent's score
+    if (higher === 30) {
+      return { isValid: true, errors: [] }; // 30 is always a winning score
+    }
+
+    // FIXED: For scores below 30, must win by at least 2 points
+    if (higher < 30 && (higher - lower) < 2) {
+      errors.push('Match not complete - winner must win by at least 2 points (or reach 30 points)');
+      return { isValid: errors.length === 0, errors };
     }
 
     return { isValid: errors.length === 0, errors };
   }
+
   /**
    * Safely get player ELO rating with fallback
    */

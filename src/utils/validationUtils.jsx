@@ -149,24 +149,35 @@ export const validationUtils = {
     return !isNaN(numScore) && numScore >= 0 && numScore <= 30;
   },
 
-  // Enhanced game completion check
+  // FIXED: Enhanced game completion check for badminton rules
   isGameComplete: (score1, score2) => {
     const higher = Math.max(score1, score2);
     const lower = Math.min(score1, score2);
 
-    // Game must reach at least 21 points
-    if (higher < 21) {
+    // Basic validation: scores can't be equal (no ties in badminton)
+    if (score1 === score2) {
     return false;
     }
 
-    // At 29-29, first to 30 wins
-    if (higher === 30 && lower === 29) {
+    // Game must reach at least 21 points for the winner
+    if (higher < 21) {
+      return false;
+    }
+
+    // FIXED: Special case - At 30 points, the game ends regardless (maximum possible score)
+    if (higher === 30) {
+      return true; // Any score with 30 is valid (30-0, 30-15, 30-28, 30-29, etc.)
+    }
+
+    // FIXED: For scores below 30, must win by at least 2 points
+    if (higher < 30 && (higher - lower) >= 2) {
       return true;
     }
 
-    // Must win by 2 points up to 30
-    if (higher <= 30 && higher - lower >= 2) {
-      return true;
+    // FIXED: Special deuce scenarios (20-20 onwards)
+    if (lower >= 20) {
+      // At deuce (20+ each), need to win by 2 points OR reach 30
+      return (higher - lower) >= 2 || higher === 30;
     }
 
     return false;
