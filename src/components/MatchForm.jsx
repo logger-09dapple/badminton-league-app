@@ -205,13 +205,29 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
 
     setIsSubmitting(true);
     try {
-      console.log('Submitting match data:', matchData); // Debug log
+      console.log('🎯 Submitting match data:', matchData); // Debug log
       const result = await onSubmit(matchData);
-      console.log('Match creation result:', result); // Debug log
+      console.log('✅ Match creation result:', result); // Debug log
     } catch (error) {
-      console.error('Error submitting match form:', error);
+      console.error('❌ Error submitting match form:', error);
+
+      // Better error message handling
+      let errorMessage = 'Failed to save match. Please try again.';
+
+      if (error.message) {
+        if (error.message.includes('No ELO updates generated')) {
+          errorMessage = 'Unable to calculate ELO ratings for this match. This may be due to incomplete player data. Please ensure all selected players have been properly initialized.';
+        } else if (error.message.includes('Invalid player count')) {
+          errorMessage = 'Invalid team composition. Please ensure both teams have exactly 2 players each.';
+        } else if (error.message.includes('validation failed')) {
+          errorMessage = `Score validation error: ${error.message}`;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       setErrors({
-        submit: `Failed to save match: ${error.message || 'Please try again'}`
+        submit: errorMessage
       });
     } finally {
       setIsSubmitting(false);
@@ -396,35 +412,39 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
             <div className="score-inputs">
               <div className="score-group">
                 <label htmlFor="team1Score">{team1.name} Score *</label>
+            <div className="score-slider-container">
                 <input
-                  type="text"
+                type="range"
                   id="team1Score"
                   name="team1Score"
-                  value={formData.team1Score}
-                  onChange={handleChange}
-                  className={errors.team1Score ? 'error' : ''}
-                  placeholder="Enter score"
-                  maxLength="2"
-                  required
+                min="0"
+                max="30"
+                value={formData.team1Score || 0}
+                onChange={(e) => setFormData(prev => ({ ...prev, team1Score: e.target.value }))}
+                className="score-slider"
                 />
-            {errors.team1Score && <span className="error-text">{errors.team1Score}</span>}
+              <div className="score-display">{formData.team1Score || 0}</div>
               </div>
+            {errors.team1Score && <span className="error-text">{errors.team1Score}</span>}
+            </div>
           <div className="score-group">
             <label htmlFor="team2Score">{team2.name} Score *</label>
-            <input
-              type="text"
-              id="team2Score"
-              name="team2Score"
-              value={formData.team2Score}
-                onChange={handleChange}
-              className={errors.team2Score ? 'error' : ''}
-              placeholder="Enter score"
-              maxLength="2"
-              required
-            />
-            {errors.team2Score && <span className="error-text">{errors.team2Score}</span>}
+            <div className="score-slider-container">
+              <input
+                type="range"
+                id="team2Score"
+                name="team2Score"
+                min="0"
+                max="30"
+                value={formData.team2Score || 0}
+                onChange={(e) => setFormData(prev => ({ ...prev, team2Score: e.target.value }))}
+                className="score-slider"
+              />
+              <div className="score-display">{formData.team2Score || 0}</div>
             </div>
+            {errors.team2Score && <span className="error-text">{errors.team2Score}</span>}
           </div>
+        </div>
 
         {/* Badminton Scoring Rules */}
         <div className="scoring-rules">

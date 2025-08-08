@@ -26,7 +26,7 @@ export class BadmintonEloSystem {
   }
 
   /**
-   * Validate player data for ELO calculation
+   * Validate player data for ELO calculation - ENHANCED for new players
    */
   validatePlayerData(players) {
     const errors = [];
@@ -55,14 +55,31 @@ export class BadmintonEloSystem {
         errors.push(`Player at index ${index} missing name`);
       }
 
-      if (typeof player.elo_rating !== 'number' || isNaN(player.elo_rating)) {
-        errors.push(`Player ${player.name || index} has invalid ELO rating`);
+      // ENHANCED: Be more forgiving with ELO rating validation for new players
+      const eloRating = player.elo_rating;
+      if (eloRating === null || eloRating === undefined) {
+        console.warn(`Player ${player.name || index} has no ELO rating, will use default ${this.initialRating}`);
+        player.elo_rating = this.initialRating; // Auto-fix missing ELO
+      } else if (typeof eloRating !== 'number' || isNaN(eloRating)) {
+        console.warn(`Player ${player.name || index} has invalid ELO rating: ${eloRating}, will use default ${this.initialRating}`);
+        player.elo_rating = this.initialRating; // Auto-fix invalid ELO
+      } else if (eloRating < this.minRating || eloRating > this.maxRating) {
+        console.warn(`Player ${player.name || index} ELO rating ${eloRating} out of range, will clamp to valid range`);
+        player.elo_rating = Math.max(this.minRating, Math.min(this.maxRating, eloRating)); // Auto-fix out of range ELO
       }
-      if (player.elo_rating < this.minRating || player.elo_rating > this.maxRating) {
-        errors.push(`Player ${player.name || index} ELO rating out of valid range`);
+
+      // ENHANCED: Auto-fix missing games played
+      if (!player.elo_games_played || typeof player.elo_games_played !== 'number' || isNaN(player.elo_games_played)) {
+        console.warn(`Player ${player.name || index} has invalid elo_games_played, will use 0`);
+        player.elo_games_played = 0;
+      }
+
+      // ENHANCED: Auto-fix missing skill level
+      if (!player.skill_level) {
+        console.warn(`Player ${player.name || index} has no skill level, will use 'Intermediate'`);
+        player.skill_level = 'Intermediate';
       }
     });
-
     return { isValid: errors.length === 0, errors };
   }
 
@@ -102,7 +119,6 @@ export class BadmintonEloSystem {
 
     return { isValid: errors.length === 0, errors };
   }
-
   /**
    * Safely get player ELO rating with fallback
    */
@@ -117,12 +133,12 @@ export class BadmintonEloSystem {
       }
 
       console.warn(`Invalid ELO rating for player ${player.name || player.id}: ${rating}, using initial rating`);
-      return this.initialRating;
-  } catch (error) {
+        return this.initialRating;
+    } catch (error) {
       console.error('Error getting player ELO rating:', error);
       return this.initialRating;
+    }
   }
-}
 	
   /**
    * Calculate expected score with error handling
@@ -147,7 +163,6 @@ export class BadmintonEloSystem {
       return 0.5; // Fallback to 50% expected score
     }
   }
-
   /**
    * Get K-factor with adjustments and error handling
    */
@@ -156,7 +171,6 @@ export class BadmintonEloSystem {
       if (!player) return this.kFactor;
     const gamesPlayed = player.elo_games_played || 0;
       const rating = this.getPlayerEloRating(player);
-
       let kFactor = this.kFactor;
       // Adjust K-factor based on experience
     if (gamesPlayed < 10) {
@@ -174,7 +188,7 @@ export class BadmintonEloSystem {
       console.error('Error calculating K-factor:', error);
       return this.kFactor;
   }
-  }
+}
 
   /**
    * Calculate new ELO rating with comprehensive error handling - FIXED to ensure integers
@@ -248,27 +262,36 @@ export class BadmintonEloSystem {
    */
   processMatchResult(team1Players, team2Players, team1Score, team2Score, team1Data = null, team2Data = null) {
     try {
-      console.log('Processing match result with error handling (including team ELO)');
+      console.log('🎯 Processing match result with error handling (including team ELO)');
+      console.log('Team 1 players:', team1Players?.map(p => ({ id: p?.id, name: p?.name, elo_rating: p?.elo_rating })));
+      console.log('Team 2 players:', team2Players?.map(p => ({ id: p?.id, name: p?.name, elo_rating: p?.elo_rating })));
+      console.log('Scores:', { team1Score, team2Score });
 
       // Validate inputs
       const team1Validation = this.validatePlayerData(team1Players);
       if (!team1Validation.isValid) {
+        console.error('❌ Team 1 validation failed:', team1Validation.errors);
         throw new Error(`Team 1 validation failed: ${team1Validation.errors.join(', ')}`);
       }
 
       const team2Validation = this.validatePlayerData(team2Players);
       if (!team2Validation.isValid) {
+        console.error('❌ Team 2 validation failed:', team2Validation.errors);
         throw new Error(`Team 2 validation failed: ${team2Validation.errors.join(', ')}`);
       }
 
       const scoreValidation = this.validateMatchScores(team1Score, team2Score);
       if (!scoreValidation.isValid) {
+        console.error('❌ Score validation failed:', scoreValidation.errors);
         throw new Error(`Score validation failed: ${scoreValidation.errors.join(', ')}`);
       }
 
       // Calculate team averages safely
       const team1AvgRating = this.calculateTeamAverageRating(team1Players);
       const team2AvgRating = this.calculateTeamAverageRating(team2Players);
+
+      console.log('✅ Validation passed, calculating ELO changes...');
+      console.log('Team averages:', { team1AvgRating, team2AvgRating });
 
       const team1Won = team1Score > team2Score;
       const eloUpdates = [];
@@ -281,9 +304,12 @@ export class BadmintonEloSystem {
         const player = allPlayers[i];
         try {
           if (!player || !player.id) {
-            console.warn(`Skipping invalid player at index ${i}`);
+            console.warn(`⚠️ Skipping invalid player at index ${i}:`, player);
             continue;
           }
+
+          console.log(`🔄 Processing player: ${player.name} (ID: ${player.id}, ELO: ${player.elo_rating})`);
+
           const isTeam1 = team1Players.some(p => p.id === player.id);
           const playerWon = isTeam1 ? team1Won : !team1Won;
           const opponentAvgRating = isTeam1 ? team2AvgRating : team1AvgRating;
@@ -296,7 +322,7 @@ export class BadmintonEloSystem {
           const ratingResult = this.calculateNewRating(currentRating, expectedScore, actualScore, kFactor);
           const newSkillLevel = this.getSkillLevelFromElo(ratingResult.newRating);
 
-          eloUpdates.push({
+          const update = {
           playerId: player.id,
             playerName: player.name || 'Unknown',
             oldRating: currentRating,
@@ -309,11 +335,14 @@ export class BadmintonEloSystem {
             kFactor: ratingResult.kFactor,
             opponentAvgRating,
             won: playerWon
-        });
+          };
+          eloUpdates.push(update);
+          console.log(`✅ Player ${player.name}: ${currentRating} → ${ratingResult.newRating} (${ratingResult.ratingChange > 0 ? '+' : ''}${ratingResult.ratingChange})`);
+
         } catch (playerError) {
-          console.error(`Error processing player ${player?.name || player?.id || 'unknown'}:`, playerError);
+          console.error(`❌ Error processing player ${player?.name || player?.id || 'unknown'}:`, playerError);
           // Add a default update to prevent system failure
-          eloUpdates.push({
+          const defaultUpdate = {
             playerId: player?.id || `unknown-${i}`,
             playerName: player?.name || 'Unknown',
             oldRating: this.getPlayerEloRating(player),
@@ -327,14 +356,15 @@ export class BadmintonEloSystem {
             opponentAvgRating: this.initialRating,
             won: false,
             error: playerError.message
-    });
-  }
+      };
+          eloUpdates.push(defaultUpdate);
+        }
       }
 
       // Process team ELO if team data is provided
       if (team1Data && team2Data) {
-    try {
-          console.log('Processing team ELO ratings...');
+        try {
+          console.log('🏆 Processing team ELO ratings...');
           const teamUpdates = teamEloSystem.processTeamMatchResult(
             team1Data,
             team2Data,
@@ -342,25 +372,31 @@ export class BadmintonEloSystem {
             team2Score
       );
           teamEloUpdates.push(...teamUpdates);
-          console.log(`Generated ${teamUpdates.length} team ELO updates`);
+          console.log(`✅ Generated ${teamUpdates.length} team ELO updates`);
         } catch (teamError) {
-          console.error('Error processing team ELO:', teamError);
+          console.error('❌ Error processing team ELO:', teamError);
           // Continue without team ELO updates
     }
       } else {
-        console.log('Team data not provided, skipping team ELO processing');
+        console.log('⚠️ Team data not provided, skipping team ELO processing');
       }
     
-      console.log('ELO processing completed successfully');
+      console.log('🎉 ELO processing completed successfully');
+      console.log(`Final result: ${eloUpdates.length} player updates, ${teamEloUpdates.length} team updates`);
 
       return {
         playerEloUpdates: eloUpdates,
         teamEloUpdates: teamEloUpdates
       };
-
     } catch (error) {
-      console.error('Critical error in ELO processing:', error);
-      // Return empty updates to prevent system crash
+      console.error('💥 Critical error in ELO processing:', error);
+      console.error('Error details:', {
+        team1Players: team1Players?.map(p => ({ id: p?.id, name: p?.name, elo_rating: p?.elo_rating })),
+        team2Players: team2Players?.map(p => ({ id: p?.id, name: p?.name, elo_rating: p?.elo_rating })),
+        team1Score,
+        team2Score
+      });
+      // Return empty updates to prevent system crash - this is what's causing "No ELO updates generated"
       return {
         playerEloUpdates: [],
         teamEloUpdates: []
@@ -457,7 +493,6 @@ export class BadmintonEloSystem {
     
       // Base confidence on games played
       let confidence = Math.min(100, (gamesPlayed / 20) * 100);
-
       // Adjust based on how far from threshold
       const currentSkill = player.skill_level || 'Intermediate';
       const currentThreshold = this.skillThresholds[currentSkill];
@@ -494,7 +529,6 @@ export class BadmintonEloSystem {
     let kFactor = this.kFactor;
     const currentRating = player.elo_rating || this.initialRating;
     const gamesPlayed = player.elo_games_played || 0;
-
     // Adjust based on experience [17]
     if (gamesPlayed < 10) {
       kFactor *= this.kFactorAdjustments.newPlayer;

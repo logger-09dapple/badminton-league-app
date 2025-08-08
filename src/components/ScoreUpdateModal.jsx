@@ -12,7 +12,7 @@ const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
 
   const handleScoreChange = (team, value) => {
     const numValue = parseInt(value) || 0;
-    if (numValue >= 0 && numValue <= 21) {
+    if (numValue >= 0 && numValue <= 30) { // Updated max to 30 for badminton
       setScores(prev => ({
         ...prev,
         [`${team}Score`]: numValue
@@ -33,14 +33,16 @@ const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
     // Validate scores
     const newErrors = {};
     if (!validationUtils.validateScore(scores.team1Score)) {
-      newErrors.team1Score = 'Score must be between 0 and 21';
+      newErrors.team1Score = 'Score must be between 0 and 30';
     }
     if (!validationUtils.validateScore(scores.team2Score)) {
-      newErrors.team2Score = 'Score must be between 0 and 21';
+      newErrors.team2Score = 'Score must be between 0 and 30';
     }
 
-    if (scores.team1Score === scores.team2Score) {
-      newErrors.general = 'Scores cannot be tied in badminton';
+    // Use badminton score validation
+    const scoreValidation = validationUtils.validateBadmintonScore(scores.team1Score, scores.team2Score);
+    if (!scoreValidation.isValid) {
+      Object.assign(newErrors, scoreValidation.errors);
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -73,14 +75,17 @@ const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
         <div className="teams-scores">
           <div className="team-score-input">
             <label>{match.team1?.name || 'Team 1'}</label>
-            <input
-              type="number"
-              min="0"
-              max="21"
-              value={scores.team1Score}
+            <div className="score-slider-container">
+              <input
+                type="range"
+                min="0"
+                max="30"
+                value={scores.team1Score || 0}
               onChange={(e) => handleScoreChange('team1', e.target.value)}
-              className={errors.team1Score ? 'error' : ''}
+                className="score-slider"
             />
+              <div className="score-display">{scores.team1Score || 0}</div>
+            </div>
             {errors.team1Score && (
               <span className="error-text">{errors.team1Score}</span>
             )}
@@ -90,24 +95,27 @@ const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
 
           <div className="team-score-input">
             <label>{match.team2?.name || 'Team 2'}</label>
-            <input
-              type="number"
-              min="0"
-              max="21"
-              value={scores.team2Score}
-              onChange={(e) => handleScoreChange('team2', e.target.value)}
-              className={errors.team2Score ? 'error' : ''}
-            />
+            <div className="score-slider-container">
+              <input
+                type="range"
+                min="0"
+                max="30"
+                value={scores.team2Score || 0}
+                onChange={(e) => handleScoreChange('team2', e.target.value)}
+                className="score-slider"
+              />
+              <div className="score-display">{scores.team2Score || 0}</div>
+          </div>
             {errors.team2Score && (
               <span className="error-text">{errors.team2Score}</span>
-            )}
-          </div>
+        )}
+        </div>
         </div>
 
         {scores.team1Score !== scores.team2Score && (
           <div className="winner-display">
-            Winner: {scores.team1Score > scores.team2Score 
-              ? match.team1?.name 
+            Winner: {scores.team1Score > scores.team2Score
+              ? match.team1?.name
               : match.team2?.name
             }
           </div>

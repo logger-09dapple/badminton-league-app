@@ -57,36 +57,45 @@ export async function createMatchWithScores(matchData) {
     // 2. Extract player data for ELO processing
     const team1Players = newMatch.team1?.team_players?.map(tp => ({
       ...tp.players,
-      elo_rating: tp.players.elo_rating || 1500,
-      elo_games_played: tp.players.elo_games_played || 0,
-      peak_elo_rating: tp.players.peak_elo_rating || tp.players.elo_rating || 1500,
-      matches_played: tp.players.matches_played || 0,
-      matches_won: tp.players.matches_won || 0,
-      points: tp.players.points || 0
+      // CRITICAL FIX: Ensure all ELO fields have valid defaults for new players
+      elo_rating: tp.players.elo_rating ?? 1500,
+      elo_games_played: tp.players.elo_games_played ?? 0,
+      peak_elo_rating: tp.players.peak_elo_rating ?? tp.players.elo_rating ?? 1500,
+      matches_played: tp.players.matches_played ?? 0,
+      matches_won: tp.players.matches_won ?? 0,
+      points: tp.players.points ?? 0,
+      skill_level: tp.players.skill_level ?? 'Intermediate'
     })) || [];
     
     const team2Players = newMatch.team2?.team_players?.map(tp => ({
       ...tp.players,
-      elo_rating: tp.players.elo_rating || 1500,
-      elo_games_played: tp.players.elo_games_played || 0,
-      peak_elo_rating: tp.players.peak_elo_rating || tp.players.elo_rating || 1500,
-      matches_played: tp.players.matches_played || 0,
-      matches_won: tp.players.matches_won || 0,
-      points: tp.players.points || 0
+      // CRITICAL FIX: Ensure all ELO fields have valid defaults for new players
+      elo_rating: tp.players.elo_rating ?? 1500,
+      elo_games_played: tp.players.elo_games_played ?? 0,
+      peak_elo_rating: tp.players.peak_elo_rating ?? tp.players.elo_rating ?? 1500,
+      matches_played: tp.players.matches_played ?? 0,
+      matches_won: tp.players.matches_won ?? 0,
+      points: tp.players.points ?? 0,
+      skill_level: tp.players.skill_level ?? 'Intermediate'
     })) || [];
     
+    console.log('✅ Player data extracted:', {
+      team1: team1Players.map(p => ({ name: p.name, elo_rating: p.elo_rating, elo_games_played: p.elo_games_played })),
+      team2: team2Players.map(p => ({ name: p.name, elo_rating: p.elo_rating, elo_games_played: p.elo_games_played }))
+    });
+
     if (team1Players.length !== 2 || team2Players.length !== 2) {
-      console.error('Invalid player count for ELO calculation:', {
+      console.error('❌ Invalid player count for ELO calculation:', {
         team1Count: team1Players.length,
         team2Count: team2Players.length
       });
-      return newMatch; // Return match without ELO processing
+      throw new Error(`Invalid player count: Team 1 has ${team1Players.length} players, Team 2 has ${team2Players.length} players. Both teams must have exactly 2 players.`);
     }
 
     // 3. Calculate ELO updates
-    console.log('Calculating ELO updates for players:', {
-      team1: team1Players.map(p => p.name),
-      team2: team2Players.map(p => p.name)
+    console.log('🧮 Calculating ELO updates for players:', {
+      team1: team1Players.map(p => `${p.name} (${p.elo_rating})`),
+      team2: team2Players.map(p => `${p.name} (${p.elo_rating})`)
     });
     
     const eloUpdates = badmintonEloSystem.processMatchResult(
@@ -96,13 +105,46 @@ export async function createMatchWithScores(matchData) {
       matchData.team2Score
     );
     
-    console.log('ELO updates calculated:', eloUpdates);
+    console.log('📊 ELO updates calculated:', eloUpdates);
+
+    // CRITICAL FIX: Better validation of ELO updates
+    if (!eloUpdates) {
+      throw new Error('ELO system returned null result');
+    }
+
+    if (!eloUpdates.playerEloUpdates) {
+      throw new Error('ELO system returned no playerEloUpdates property');
+    }
+
+    if (!Array.isArray(eloUpdates.playerEloUpdates)) {
+      throw new Error('ELO system returned invalid playerEloUpdates (not an array)');
+    }
+
+    if (eloUpdates.playerEloUpdates.length === 0) {
+      console.error('❌ No ELO updates generated. Player data:', {
+        team1: team1Players,
+        team2: team2Players
+      });
+      throw new Error('No ELO updates generated - this usually indicates invalid player data or ELO calculation errors. Check that all players have valid ELO ratings.');
+    }
+
+    console.log(`✅ Generated ${eloUpdates.playerEloUpdates.length} ELO updates`);
+
+    // Validate each ELO update
+    for (const update of eloUpdates.playerEloUpdates) {
+      if (!update.playerId) {
+        throw new Error(`Invalid ELO update: missing playerId`);
+      }
+      if (typeof update.newRating !== 'number' || isNaN(update.newRating)) {
+        throw new Error(`Invalid ELO update for player ${update.playerId}: invalid newRating ${update.newRating}`);
+      }
+    }
 
     // 4. Apply ELO updates to players
     const historyRecords = [];
     const skillLevelChanges = [];
     
-    for (const update of eloUpdates) {
+    for (const update of eloUpdates.playerEloUpdates) {
       const player = team1Players.concat(team2Players).find(p => p.id === update.playerId);
       if (!player) continue;
       
