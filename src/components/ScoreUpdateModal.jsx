@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { validationUtils } from '../utils/validationUtils';
 import Modal from './Modal';
-import ScoreSlider from './ScoreSlider';
+import ScoreDropdown from './ScoreDropdown';
 
 const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
   const [scores, setScores] = useState({
@@ -74,7 +74,7 @@ const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
         )}
 
         <div className="teams-scores">
-          <ScoreSlider
+          <ScoreDropdown
                 value={scores.team1Score || 0}
             onChange={(value) => setScores(prev => ({ ...prev, team1Score: value }))}
             min={0}
@@ -82,9 +82,10 @@ const ScoreUpdateModal = ({ match, onSubmit, onClose }) => {
             teamName={match.team1?.name || 'Team 1'}
             error={errors.team1Score}
             />
+
           <div className="vs-separator">VS</div>
 
-          <ScoreSlider
+          <ScoreDropdown
             value={scores.team2Score || 0}
             onChange={(value) => setScores(prev => ({ ...prev, team2Score: value }))}
             min={0}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { validationUtils } from '../utils/validationUtils';
 import { formatInputDate, formatDisplayDate, parseInputDate } from '../utils/dateUtils';
 import { Users, ArrowRight, CheckCircle } from 'lucide-react';
-import ScoreSlider from './ScoreSlider';
+import ScoreDropdown from './ScoreDropdown';
 
 const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = false }) => {
   const [selectedPlayers, setSelectedPlayers] = useState(new Set());
@@ -411,7 +411,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
             </div>
             
             <div className="score-inputs">
-          <ScoreSlider
+          <ScoreDropdown
             value={parseInt(formData.team1Score) || 0}
             onChange={(value) => setFormData(prev => ({ ...prev, team1Score: value.toString() }))}
             min={0}
@@ -420,7 +420,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
             error={errors.team1Score}
                 />
 
-          <ScoreSlider
+          <ScoreDropdown
             value={parseInt(formData.team2Score) || 0}
             onChange={(value) => setFormData(prev => ({ ...prev, team2Score: value.toString() }))}
             min={0}
@@ -429,6 +429,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
             error={errors.team2Score}
               />
             </div>
+
         {/* Badminton Scoring Rules */}
         <div className="scoring-rules">
           <h4>Badminton Scoring Rules:</h4>

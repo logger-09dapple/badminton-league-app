@@ -164,6 +164,168 @@
   }
 }
 
+/* Score Dropdown Styles */
+.score-dropdown-container {
+  position: relative;
+    width: 100%;
+}
+
+.score-dropdown-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+    font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+  min-height: 3.5rem;
+  }
+
+.score-dropdown-trigger:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #6d3f8e 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+  }
+  
+.score-dropdown-trigger.open {
+  background: linear-gradient(135deg, #5a67d8 0%, #6d3f8e 100%);
+  border-radius: 0.75rem 0.75rem 0 0;
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+  }
+  
+.score-dropdown-trigger.error {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.2);
+  }
+  
+.score-display-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  }
+
+.score-dropdown-arrow {
+    display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  }
+  
+.score-dropdown-trigger.open .score-dropdown-arrow {
+  transform: rotate(180deg);
+  }
+  
+.score-dropdown-options {
+    position: absolute;
+  top: 100%;
+    left: 0;
+  right: 0;
+  background: white;
+  border: 2px solid #667eea;
+  border-top: none;
+  border-radius: 0 0 0.75rem 0.75rem;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+  z-index: 1000;
+  max-height: 300px;
+  overflow-y: auto;
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  animation: dropdownOpen 0.2s ease-out;
+  }
+
+.score-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.score-option:last-child {
+  border-bottom: none;
+  }
+
+.score-option:hover {
+  background: linear-gradient(90deg, #f8fafc 0%, #e2e8f0 100%);
+  color: #667eea;
+  }
+
+.score-option.selected {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  }
+
+.score-option:focus {
+  outline: none;
+  background: linear-gradient(90deg, #f0f9ff 0%, #dbeafe 100%);
+  color: #1e40af;
+  }
+
+.score-number {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.selected-indicator {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.score-option.selected .selected-indicator {
+  color: white;
+}
+
+/* Custom scrollbar for dropdown */
+.score-dropdown-options::-webkit-scrollbar {
+  width: 6px;
+}
+
+.score-dropdown-options::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.score-dropdown-options::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 3px;
+}
+
+.score-dropdown-options::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #6d3f8e 100%);
+}
+
+/* Animation for dropdown opening */
+@keyframes dropdownOpen {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Score label styling */
+.score-label {
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.75rem;
+  display: block;
+  font-size: 1rem;
+}
+
 /* Custom Score Slider Component Styles */
 .score-slider-wrapper {
   position: relative;
@@ -235,13 +397,6 @@
   box-shadow: 0 5px 10px rgba(102, 126, 234, 0.5);
 }
 
-.score-label {
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.5rem;
-  display: block;
-}
-
 .score-slider-container {
   display: flex;
   align-items: center;
@@ -267,7 +422,7 @@
   border: 3px solid white;
 }
 
-/* Mobile optimizations for custom slider */
+/* Mobile optimizations */
 @media (max-width: 768px) {
   .score-slider-wrapper {
     height: 32px;
@@ -347,9 +502,36 @@
     left: 0;
     pointer-events: none;
   }
+
+  .score-dropdown-trigger {
+    padding: 1.25rem 1.5rem;
+    font-size: 1.125rem;
+    min-height: 4rem;
+  }
+
+  .score-display-value {
+    font-size: 1.375rem;
+  }
+
+  .score-dropdown-options {
+    max-height: 250px;
+  }
+
+  .score-option {
+    padding: 1rem 1.5rem;
+    min-height: 3.5rem;
+  }
+
+  .score-number {
+    font-size: 1.25rem;
+  }
+
+  .selected-indicator {
+    font-size: 1.25rem;
+  }
 }
 
-/* Touch device improvements for custom slider */
+/* Touch device improvements */
 @media (hover: none) and (pointer: coarse) {
   .score-slider-wrapper {
     height: 40px;
@@ -368,5 +550,19 @@
     width: 32px;
     height: 32px;
     border: 4px solid white;
+  }
+
+  .score-dropdown-trigger {
+    min-height: 4.5rem;
+    padding: 1.5rem 1.75rem;
+  }
+
+  .score-option {
+    min-height: 4rem;
+    padding: 1.25rem 1.75rem;
+  }
+
+  .score-dropdown-options {
+    max-height: 200px;
   }
 }
