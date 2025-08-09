@@ -9,6 +9,16 @@ export class BadmintonEloSystem {
     this.minRating = options.minRating || 800; // Minimum possible rating
     this.maxRating = options.maxRating || 2800; // Maximum theoretical rating
     
+    // NEW: Margin of victory scaling options
+    this.useMarginScaling = options.useMarginScaling || false;
+    this.marginScaling = {
+      type: options.marginScaling?.type || 'logarithmic', // 'logarithmic', 'linear', 'exponential'
+      scaleFactor: options.marginScaling?.scaleFactor || 0.15,
+      maxMultiplier: options.marginScaling?.maxMultiplier || 1.75,
+      minMultiplier: options.marginScaling?.minMultiplier || 1.0,
+      baselineMargin: options.marginScaling?.baselineMargin || 2
+    };
+    
     // Skill level thresholds based on ELO ratings [21]
     this.skillThresholds = {
       'Beginner': { min: 800, max: 1399 },
@@ -24,13 +34,11 @@ export class BadmintonEloSystem {
       highRated: 0.6     // High-rated players change slowly
     };
   }
-
   /**
    * Validate player data for ELO calculation - ENHANCED for new players
    */
   validatePlayerData(players) {
     const errors = [];
-
     if (!Array.isArray(players)) {
       errors.push('Players must be an array');
       return { isValid: false, errors };
@@ -82,7 +90,6 @@ export class BadmintonEloSystem {
     });
     return { isValid: errors.length === 0, errors };
   }
-
   /**
    * Validate match scores - FIXED for proper badminton rules
    */
@@ -112,8 +119,8 @@ export class BadmintonEloSystem {
     // No ties allowed
     if (team1Score === team2Score) {
       errors.push('Scores cannot be tied in badminton');
-    return { isValid: errors.length === 0, errors };
-  }
+      return { isValid: errors.length === 0, errors };
+    }
 
     // Winner must have at least 21 points
     if (higher < 21) {
@@ -153,9 +160,9 @@ export class BadmintonEloSystem {
     } catch (error) {
       console.error('Error getting player ELO rating:', error);
       return this.initialRating;
-    }
   }
-	
+}
+
   /**
    * Calculate expected score with error handling
    */
@@ -179,6 +186,7 @@ export class BadmintonEloSystem {
       return 0.5; // Fallback to 50% expected score
     }
   }
+
   /**
    * Get K-factor with adjustments and error handling
    */
@@ -203,8 +211,70 @@ export class BadmintonEloSystem {
     } catch (error) {
       console.error('Error calculating K-factor:', error);
       return this.kFactor;
-  }
 }
+}
+
+  /**
+   * NEW: Calculate FIFA-style logarithmic margin multiplier
+   * Based on World Football Elo system
+   */
+  calculateMarginMultiplier(winnerScore, loserScore) {
+    if (!this.useMarginScaling) return 1.0;
+
+    try {
+      const rawMargin = Math.abs(winnerScore - loserScore);
+      const effectiveMargin = Math.max(0, rawMargin - this.marginScaling.baselineMargin);
+
+      let multiplier = 1.0;
+
+      switch (this.marginScaling.type) {
+        case 'logarithmic':
+          // FIFA-style: 1 + scaleFactor * ln(1 + effectiveMargin)
+          multiplier = 1 + (this.marginScaling.scaleFactor * Math.log(1 + effectiveMargin));
+          break;
+
+        case 'linear':
+          // Simple linear scaling
+          multiplier = 1 + (this.marginScaling.scaleFactor * effectiveMargin);
+          break;
+
+        case 'exponential':
+          // Exponential decay for very large margins
+          multiplier = 1 + (this.marginScaling.scaleFactor * (1 - Math.exp(-effectiveMargin / 5)));
+          break;
+
+        default:
+          multiplier = 1.0;
+      }
+
+      // Clamp to bounds
+      return Math.max(
+        this.marginScaling.minMultiplier,
+        Math.min(this.marginScaling.maxMultiplier, multiplier)
+      );
+
+    } catch (error) {
+      console.error('Error calculating margin multiplier:', error);
+      return 1.0;
+    }
+  }
+
+  /**
+   * Enhanced K-factor calculation with margin scaling
+   */
+  getKFactorWithMargin(player, winnerScore, loserScore, isWinner) {
+    const baseKFactor = this.getKFactor(player);
+
+    if (!this.useMarginScaling || !isWinner) {
+      return baseKFactor;
+    }
+
+    const marginMultiplier = this.calculateMarginMultiplier(winnerScore, loserScore);
+    const enhancedKFactor = baseKFactor * marginMultiplier;
+
+    // Ensure reasonable bounds
+    return Math.max(8, Math.min(80, Math.round(enhancedKFactor)));
+  }
 
   /**
    * Calculate new ELO rating with comprehensive error handling - FIXED to ensure integers
@@ -274,11 +344,14 @@ export class BadmintonEloSystem {
 
   /**
    * Process match result with comprehensive error handling and validation
-   * Now includes team ELO processing
+   * Now includes OPTIONAL margin of victory scaling
    */
   processMatchResult(team1Players, team2Players, team1Score, team2Score, team1Data = null, team2Data = null) {
     try {
       console.log('🎯 Processing match result with error handling (including team ELO)');
+      if (this.useMarginScaling) {
+        console.log('📊 Using margin scaling:', this.marginScaling.type);
+      }
       console.log('Team 1 players:', team1Players?.map(p => ({ id: p?.id, name: p?.name, elo_rating: p?.elo_rating })));
       console.log('Team 2 players:', team2Players?.map(p => ({ id: p?.id, name: p?.name, elo_rating: p?.elo_rating })));
       console.log('Scores:', { team1Score, team2Score });
@@ -310,6 +383,15 @@ export class BadmintonEloSystem {
       console.log('Team averages:', { team1AvgRating, team2AvgRating });
 
       const team1Won = team1Score > team2Score;
+      const winnerScore = team1Won ? team1Score : team2Score;
+      const loserScore = team1Won ? team2Score : team1Score;
+
+      // Calculate margin multiplier if enabled
+      const marginMultiplier = this.calculateMarginMultiplier(winnerScore, loserScore);
+      if (this.useMarginScaling) {
+        console.log(`📊 Margin multiplier: ${marginMultiplier.toFixed(3)}x for ${winnerScore}-${loserScore}`);
+      }
+
       const eloUpdates = [];
       const teamEloUpdates = [];
     
@@ -333,7 +415,11 @@ export class BadmintonEloSystem {
           const currentRating = this.getPlayerEloRating(player);
           const expectedScore = this.calculateExpectedScore(currentRating, opponentAvgRating);
           const actualScore = playerWon ? 1 : 0;
-          const kFactor = this.getKFactor(player);
+
+          // Use margin-enhanced K-factor if enabled
+          const kFactor = this.useMarginScaling ?
+            this.getKFactorWithMargin(player, winnerScore, loserScore, playerWon) :
+            this.getKFactor(player);
 
           const ratingResult = this.calculateNewRating(currentRating, expectedScore, actualScore, kFactor);
           const newSkillLevel = this.getSkillLevelFromElo(ratingResult.newRating);
@@ -349,11 +435,19 @@ export class BadmintonEloSystem {
             expectedScore: ratingResult.expectedScore,
             actualScore: ratingResult.actualScore,
             kFactor: ratingResult.kFactor,
+            baseKFactor: this.getKFactor(player), // Original K-factor for comparison
+            marginMultiplier: this.useMarginScaling && playerWon ? marginMultiplier : 1.0,
+            scoreMargin: Math.abs(team1Score - team2Score),
             opponentAvgRating,
             won: playerWon
           };
           eloUpdates.push(update);
-          console.log(`✅ Player ${player.name}: ${currentRating} → ${ratingResult.newRating} (${ratingResult.ratingChange > 0 ? '+' : ''}${ratingResult.ratingChange})`);
+
+          if (this.useMarginScaling && playerWon) {
+            console.log(`✅ Player ${player.name}: ${currentRating} → ${ratingResult.newRating} (${ratingResult.ratingChange > 0 ? '+' : ''}${ratingResult.ratingChange}) [Margin: ${marginMultiplier.toFixed(2)}x, K: ${this.getKFactor(player)}→${kFactor}]`);
+          } else {
+            console.log(`✅ Player ${player.name}: ${currentRating} → ${ratingResult.newRating} (${ratingResult.ratingChange > 0 ? '+' : ''}${ratingResult.ratingChange})`);
+          }
 
         } catch (playerError) {
           console.error(`❌ Error processing player ${player?.name || player?.id || 'unknown'}:`, playerError);
@@ -369,6 +463,9 @@ export class BadmintonEloSystem {
             expectedScore: 0.5,
             actualScore: 0.5,
             kFactor: this.kFactor,
+            baseKFactor: this.kFactor,
+            marginMultiplier: 1.0,
+            scoreMargin: 0,
             opponentAvgRating: this.initialRating,
             won: false,
             error: playerError.message
@@ -402,7 +499,9 @@ export class BadmintonEloSystem {
 
       return {
         playerEloUpdates: eloUpdates,
-        teamEloUpdates: teamEloUpdates
+        teamEloUpdates: teamEloUpdates,
+        marginMultiplier: this.useMarginScaling ? marginMultiplier : 1.0,
+        marginScalingUsed: this.useMarginScaling
       };
     } catch (error) {
       console.error('💥 Critical error in ELO processing:', error);
@@ -417,8 +516,8 @@ export class BadmintonEloSystem {
         playerEloUpdates: [],
         teamEloUpdates: []
       };
+    }
   }
-}
 
   /**
    * Calculate team average rating with error handling - FIXED to return integers
@@ -505,8 +604,8 @@ export class BadmintonEloSystem {
   calculateRecommendationConfidence(player) {
     try {
       const gamesPlayed = player.elo_games_played || 0;
-    const rating = player.elo_rating || this.initialRating;
-    
+      const rating = player.elo_rating || this.initialRating;
+
       // Base confidence on games played
       let confidence = Math.min(100, (gamesPlayed / 20) * 100);
       // Adjust based on how far from threshold
@@ -521,14 +620,14 @@ export class BadmintonEloSystem {
         // Higher confidence if further from threshold boundaries
         const thresholdFactor = Math.min(100, distanceFromThreshold);
         confidence = (confidence + thresholdFactor) / 2;
-    }
-    
+      }
+
       return Math.round(Math.max(0, Math.min(100, confidence)));
     } catch (error) {
       console.error('Error calculating recommendation confidence:', error);
       return 50; // Default confidence
+    }
   }
-}
 
   // Determine skill level based on ELO rating [21]
   determineSkillLevel(rating) {
@@ -560,8 +659,57 @@ export class BadmintonEloSystem {
     }
 
     return Math.max(16, Math.min(64, Math.round(kFactor)));
-}
+  }
 }
 
 // Create singleton instance with error handling
 export const badmintonEloSystem = new BadmintonEloSystem();
+
+// Export factory function for creating systems with different configurations
+export const createEloSystem = (options = {}) => {
+  return new BadmintonEloSystem(options);
+};
+
+// Export configured systems for easy use
+export const eloSystems = {
+  // Standard binary ELO (current default)
+  standard: new BadmintonEloSystem({
+    useMarginScaling: false
+  }),
+
+  // Conservative margin scaling
+  conservative: new BadmintonEloSystem({
+    useMarginScaling: true,
+    marginScaling: {
+      type: 'logarithmic',
+      scaleFactor: 0.08,
+      maxMultiplier: 1.4,
+      minMultiplier: 1.0,
+      baselineMargin: 3
+    }
+  }),
+
+  // Aggressive margin scaling
+  aggressive: new BadmintonEloSystem({
+    useMarginScaling: true,
+    marginScaling: {
+      type: 'logarithmic',
+      scaleFactor: 0.25,
+      maxMultiplier: 2.0,
+      minMultiplier: 1.0,
+      baselineMargin: 1
+    }
+  }),
+
+  // Linear margin scaling
+  linear: new BadmintonEloSystem({
+    useMarginScaling: true,
+    marginScaling: {
+      type: 'linear',
+      scaleFactor: 0.05,
+      maxMultiplier: 1.6,
+      minMultiplier: 1.0,
+      baselineMargin: 2
+    }
+  })
+};

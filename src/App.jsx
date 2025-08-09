@@ -10,6 +10,7 @@ import Matches from './pages/Matches';
 import Statistics from './pages/Statistics';
 import Tournaments from './pages/Tournaments';
 import Setup from './pages/Setup';
+import EloSystemDemo from './pages/EloSystemDemo';
 import { populateTeamEloHistory, clearTeamEloHistory, repopulateTeamEloHistory } from './scripts/populateTeamEloHistory';
 import { fixEloMismatch, clearDuplicateEloHistory, completeEloFix } from './utils/fixEloMismatch';
 import { processSequentialElo } from './utils/sequentialEloProcessor';
@@ -55,6 +56,7 @@ function App() {
               <Route path="/statistics" element={<Statistics />} />
               <Route path="/tournaments" element={<Tournaments />} />
               <Route path="/setup" element={<Setup />} />
+              <Route path="/elo-demo" element={<EloSystemDemo />} />
             </Routes>
           </main>
         </div>
