@@ -2,10 +2,11 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { supabaseService } from '../services/supabaseService';
 import { matchService } from '../services/matchService';
 import { deleteMatchWithStats } from '../services/matchDeletion';
-import { createMatchWithScores } from '../services/matchCreation'; // Import the new function
+import { createMatchWithScores } from '../services/matchCreation';
 import { roundRobinScheduler } from '../utils/schedulingUtils';
 import { badmintonEloSystem } from '../utils/BadmintonEloSystem';
-import { unifiedEloService } from '../services/unifiedEloServiceComplete'; // COMPLETE FIX: Use the fully fixed service
+import { unifiedEloService } from '../services/unifiedEloServiceComplete';
+import { eloSystemManager } from '../services/eloSystemManager';
 
 const LeagueContext = createContext();
 
@@ -26,7 +27,7 @@ const ACTION_TYPES = {
   ADD_MATCH: 'ADD_MATCH',
   ADD_MATCHES: 'ADD_MATCHES',
   UPDATE_MATCH: 'UPDATE_MATCH',
-  DELETE_MATCH: 'DELETE_MATCH', // New action type
+  DELETE_MATCH: 'DELETE_MATCH',
   DELETE_ALL_MATCHES: 'DELETE_ALL_MATCHES',
   SET_AVAILABLE_PLAYERS: 'SET_AVAILABLE_PLAYERS',
   GENERATE_SCHEDULE: 'GENERATE_SCHEDULE',
@@ -245,42 +246,42 @@ export function LeagueProvider({ children }) {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
       const [playersData, teamsData, matchesData] = await Promise.all([
-        supabaseService.getPlayers(), // Already sorted by points in the service
-        supabaseService.getTeams(), // Already sorted by points in the service
-        supabaseService.getMatchesWithPlayers() // Enhanced method to get full team player details
+        supabaseService.getPlayers(),
+        supabaseService.getTeams(),
+        supabaseService.getMatchesWithPlayers()
       ]);
 
       dispatch({ type: ACTION_TYPES.SET_PLAYERS, payload: playersData });
       dispatch({ type: ACTION_TYPES.SET_TEAMS, payload: teamsData });
       dispatch({ type: ACTION_TYPES.SET_MATCHES, payload: matchesData });
-  } catch (error) {
-    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-  } finally {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
-  }
-};
+    } catch (error) {
+      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+    } finally {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+    }
+  };
 
   // Player actions
   const addPlayer = async (playerData) => {
-  try {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
+    try {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
       const newPlayer = await supabaseService.addPlayer(playerData);
       dispatch({ type: ACTION_TYPES.ADD_PLAYER, payload: newPlayer });
-  } catch (error) {
-    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-  } finally {
-    dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
-  }
-};
+    } catch (error) {
+      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+    } finally {
+      dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
+    }
+  };
 
   const updatePlayer = async (id, playerData) => {
     try {
       const updatedPlayer = await supabaseService.updatePlayer(id, playerData);
       dispatch({ type: ACTION_TYPES.UPDATE_PLAYER, payload: updatedPlayer });
-  } catch (error) {
-    dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-  }
-};
+    } catch (error) {
+      dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
+    }
+  };
 
   const deletePlayer = async (id) => {
     try {
@@ -300,7 +301,7 @@ export function LeagueProvider({ children }) {
     } catch (error) {
       console.error('Error in addTeam:', error);
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-      throw error; // Re-throw so component can handle it
+      throw error;
     } finally {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
     }
@@ -332,31 +333,26 @@ export function LeagueProvider({ children }) {
       dispatch({ type: ACTION_TYPES.DELETE_ALL_TEAMS });
     } catch (error) {
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-      throw error; // Re-throw so component can handle it
+      throw error;
     } finally {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
     }
   };
 
   // Match actions
-  // FIXED: Add match with unified ELO processing
   const addMatch = async (matchData) => {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
 
-      // Check if scores are included to determine if we need ELO processing
       const includesScores = matchData.team1Score !== undefined && matchData.team2Score !== undefined;
 
       if (!includesScores) {
-        // Simple match creation without scores
         const newMatch = await supabaseService.addMatch(matchData);
-      dispatch({ type: ACTION_TYPES.ADD_MATCH, payload: newMatch });
-      return newMatch;
+        dispatch({ type: ACTION_TYPES.ADD_MATCH, payload: newMatch });
+        return newMatch;
       } else {
-        // Create match with scores using unified ELO processing
         console.log('🎯 Creating match with scores using Unified ELO Service');
 
-        // First create the basic match
         const basicMatchData = {
           team1Id: matchData.team1Id,
           team2Id: matchData.team2Id,
@@ -366,19 +362,17 @@ export function LeagueProvider({ children }) {
 
         const newMatch = await supabaseService.addMatch(basicMatchData);
 
-        // Then process the scores using unified service
         const result = await unifiedEloService.processMatchEloUpdate(
           newMatch.id,
           {
             team1Score: matchData.team1Score,
             team2Score: matchData.team2Score
           },
-          false // Not already completed
-      );
+          false
+        );
 
         dispatch({ type: ACTION_TYPES.ADD_MATCH, payload: result.match });
 
-        // Reload data to reflect ELO changes
           await loadInitialData();
 
         return result.match;
@@ -392,7 +386,6 @@ export function LeagueProvider({ children }) {
     }
   };
 
-  // Enhanced match update function with unified ELO processing
   const updateMatch = async (matchId, matchData) => {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
@@ -401,7 +394,6 @@ export function LeagueProvider({ children }) {
       const currentMatch = state.matches.find(match => match.id === matchId);
       const wasAlreadyCompleted = currentMatch?.status === 'completed';
 
-      // UNIFIED ELO PROCESSING: Use the same system as setup page
       if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
         console.log('🎯 Using Unified ELO Service for match update');
 
@@ -413,12 +405,10 @@ export function LeagueProvider({ children }) {
 
         dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: result.match });
 
-        // Reload data to reflect all changes
         await loadInitialData();
 
         return result;
       } else {
-        // Regular match update without scores
         const enhancedMatchData = {
           ...matchData,
           status: matchData.status || currentMatch?.status || 'scheduled'
@@ -438,24 +428,19 @@ export function LeagueProvider({ children }) {
     }
   };
 
-  // FIXED: Delete individual match function using our fixed implementation
   const deleteMatch = async (matchId) => {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
 
-      // Get match to check if it was completed
       const match = state.matches.find(m => m.id === matchId);
       if (!match) {
         throw new Error('Match not found');
       }
 
-      // Use our fixed deletion function that doesn't rely on supabase.raw()
       await deleteMatchWithStats(matchId, match.status === 'completed');
 
-          // Update local state
       dispatch({ type: ACTION_TYPES.DELETE_MATCH, payload: matchId });
 
-      // Reload data to reflect stats changes
       if (match.status === 'completed') {
           await loadInitialData();
       }
@@ -475,8 +460,7 @@ export function LeagueProvider({ children }) {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
       await supabaseService.deleteAllMatches();
       dispatch({ type: ACTION_TYPES.DELETE_ALL_MATCHES });
-      
-      // Reload player and team data to reset statistics
+
       const [playersData, teamsData] = await Promise.all([
         supabaseService.getPlayers(),
         supabaseService.getTeams()
@@ -486,7 +470,7 @@ export function LeagueProvider({ children }) {
       dispatch({ type: ACTION_TYPES.SET_TEAMS, payload: teamsData });
     } catch (error) {
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
-      throw error; // Re-throw so component can handle it
+      throw error;
     } finally {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
     }
@@ -502,7 +486,6 @@ export function LeagueProvider({ children }) {
 
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
 
-      // Pre-validation: Check team data integrity
       console.log('🔍 Pre-validation check...');
       const validTeams = state.teams.filter(team =>
         team.players && Array.isArray(team.players) && team.players.length === 2
@@ -524,7 +507,6 @@ export function LeagueProvider({ children }) {
 
       console.log(`✅ Pre-validation passed: ${validTeams.length} valid teams`);
 
-      // Detailed team data logging
       console.log('📊 Teams for scheduling:', validTeams.map(team => ({
         id: team.id,
         name: team.name,
@@ -533,7 +515,6 @@ export function LeagueProvider({ children }) {
         players: team.players?.map(p => ({ id: p.id, name: p.name, skill: p.skill_level })) || []
       })));
 
-      // Generate the schedule using the enhanced algorithm
       const schedule = roundRobinScheduler.generateSchedule(validTeams);
 
       if (!schedule || schedule.length === 0) {
@@ -542,21 +523,17 @@ export function LeagueProvider({ children }) {
 
       console.log('✅ Generated schedule:', schedule);
 
-      // Convert schedule to database-compatible matches
       const matchesToAdd = roundRobinScheduler.convertScheduleToMatches(schedule);
 
       if (matchesToAdd.length > 0) {
         console.log('💾 Saving matches to database:', matchesToAdd.length);
 
-        // Save all matches to database
         const savedMatches = await supabaseService.addMatches(matchesToAdd);
 
         console.log('🎉 Successfully saved matches:', savedMatches.length);
 
-        // Update state with new matches
         dispatch({ type: ACTION_TYPES.ADD_MATCHES, payload: savedMatches });
 
-        // Store the schedule for reference
         dispatch({ type: ACTION_TYPES.GENERATE_SCHEDULE, payload: schedule });
 
         return schedule;
@@ -573,26 +550,21 @@ export function LeagueProvider({ children }) {
     }
   };
 
-
-  // ENHANCED: Team generation with better validation
   const generateAutomaticTeams = async (players) => {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
 
       console.log('🤖 Starting automatic team generation with players:', players);
 
-      // Validate minimum players
       if (!players || players.length < 4) {
         throw new Error('At least 4 players are required to generate teams (2 teams minimum)');
       }
 
-      // Check for required fields
       const playersWithGender = players.filter(p => p.gender && p.skill_level);
       if (playersWithGender.length < players.length) {
         throw new Error('All players must have both gender and skill level assigned');
       }
 
-      // Generate teams using enhanced algorithm
       const generatedTeams = roundRobinScheduler.generateSkillBasedTeams(playersWithGender);
 
       if (generatedTeams.length === 0) {
@@ -601,7 +573,6 @@ export function LeagueProvider({ children }) {
 
       console.log(`🎯 Generated ${generatedTeams.length} teams:`, generatedTeams);
 
-      // Add all generated teams to database
       let successCount = 0;
       let errorCount = 0;
 
@@ -639,21 +610,16 @@ export function LeagueProvider({ children }) {
     }
   };
 
-  // Add this enhanced match update function to your LeagueContext
-
   const updateMatchWithEloProcessing = async (matchId, matchData) => {
     try {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
 
-      // Get current match with team and player data
       const currentMatch = state.matches.find(m => m.id === matchId);
       if (!currentMatch) {
         throw new Error('Match not found');
       }
 
-      // Only process ELO if scores are being recorded
       if (matchData.team1Score !== undefined && matchData.team2Score !== undefined) {
-        // Get team players for ELO calculation
         const team1Players = currentMatch.team1?.team_players?.map(tp => ({
           ...tp.players,
           elo_rating: tp.players.elo_rating || 1500,
@@ -667,15 +633,16 @@ export function LeagueProvider({ children }) {
         })) || [];
 
         if (team1Players.length === 2 && team2Players.length === 2) {
-          // Calculate ELO updates
-          const eloUpdates = badmintonEloSystem.processMatchResult(
+          // Calculate ELO updates using the selected system
+          const eloUpdates = eloSystemManager.processMatch(
             team1Players,
             team2Players,
             matchData.team1Score,
-            matchData.team2Score
+            matchData.team2Score,
+            currentMatch.team1,
+            currentMatch.team2
           );
 
-          // Add additional data needed for database updates
           const enhancedEloUpdates = eloUpdates.map(update => ({
             ...update,
             oldPeakRating: team1Players.concat(team2Players)
@@ -684,17 +651,14 @@ export function LeagueProvider({ children }) {
               .find(p => p.id === update.playerId)?.elo_games_played || 0
           }));
 
-          // Update match with ELO processing
           const updatedMatch = await supabaseService.updateMatchWithElo(
             matchId,
             matchData,
             enhancedEloUpdates
           );
 
-          // Update local state
           dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
 
-          // Reload player and team data to reflect ELO changes
           await loadInitialData();
 
           return {
@@ -702,14 +666,12 @@ export function LeagueProvider({ children }) {
             eloUpdates: enhancedEloUpdates
           };
         } else {
-          // Fallback to regular match update if player data is incomplete
           console.warn('Incomplete player data for ELO calculation, using regular update');
           const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
           dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
           return { match: updatedMatch, eloUpdates: [] };
         }
       } else {
-        // Regular match update without scores
         const updatedMatch = await supabaseService.updateMatch(matchId, matchData);
         dispatch({ type: ACTION_TYPES.UPDATE_MATCH, payload: updatedMatch });
         return { match: updatedMatch, eloUpdates: [] };
@@ -734,7 +696,7 @@ export function LeagueProvider({ children }) {
     deleteAllTeams,
     addMatch,
     updateMatch,
-    deleteMatch, // New function
+    deleteMatch,
     deleteAllMatches,
     updateMatchWithEloProcessing,
     generateRoundRobinSchedule,

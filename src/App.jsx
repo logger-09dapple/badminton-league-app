@@ -16,6 +16,7 @@ import { fixEloMismatch, clearDuplicateEloHistory, completeEloFix } from './util
 import { processSequentialElo } from './utils/sequentialEloProcessor';
 import { processSequentialTeamElo } from './utils/sequentialTeamEloProcessor';
 import { processEnhancedSequentialElo } from './utils/enhancedSequentialEloProcessor';
+import eloSystemDemo from './utils/eloSystemDemo';
 import './App.css';
 import './styles/MobileResponsive.css';
 import './styles/ScrollFix.css';
@@ -38,6 +39,9 @@ if (typeof window !== 'undefined') {
   window.processSequentialElo = processSequentialElo;
   window.processSequentialTeamElo = processSequentialTeamElo;
   window.processEnhancedSequentialElo = processEnhancedSequentialElo;
+
+  // ELO system demonstration functions
+  window.eloSystemDemo = eloSystemDemo;
 }
 
 function App() {

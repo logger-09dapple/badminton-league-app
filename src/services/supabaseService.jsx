@@ -29,7 +29,14 @@ class SupabaseService {
         skill_level: playerData.skillLevel,
 	gender: playerData.gender,
         email: playerData.email,
-        phone: playerData.phone
+        phone: playerData.phone,
+        // FIXED: Initialize ELO and stats for new players
+          elo_rating: 1500,
+        elo_games_played: 0,
+        peak_elo_rating: 1500,
+        matches_played: 0,
+        matches_won: 0,
+        points: 0
       }])
       .select()
       .maybeSingle(); // FIXED: Use maybeSingle() instead of single()

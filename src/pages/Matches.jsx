@@ -237,13 +237,34 @@ const getSelectedPlayerNames = () => {
   const unplayedMatches = filteredMatches.filter(match => match.status === 'scheduled');
   const completedMatches = filteredMatches
     .filter(match => match.status === 'completed')
-    // FIXED: Sort completed matches by score update date (most recent first)
+    // Sort by updated_at (when scores were entered) - most recent first
     .sort((a, b) => {
-      // Use updated_at for completed matches (when score was recorded)
       const dateA = new Date(a.updated_at || a.created_at);
       const dateB = new Date(b.updated_at || b.created_at);
       return dateB - dateA; // Newest first (descending order)
     });
+
+  // Helper function to get the display date for a match
+  const getMatchDisplayDate = (match) => {
+    if (match.status === 'completed') {
+      // For completed matches, show when it was played (updated_at)
+      return match.updated_at ? new Date(match.updated_at) : new Date(match.created_at);
+    } else {
+      // For unplayed matches, show scheduled date if available, otherwise created date
+      return match.scheduled_date ? new Date(match.scheduled_date) : new Date(match.created_at);
+    }
+  };
+
+  // Helper function to get display label for the date
+  const getMatchDateLabel = (match) => {
+    if (match.status === 'completed') {
+      return 'Played';
+    } else if (match.scheduled_date) {
+      return 'Scheduled';
+    } else {
+      return 'Created';
+    }
+  };
 
   return (
     <div className="matches-page">
@@ -380,26 +401,13 @@ const getSelectedPlayerNames = () => {
                         Completed
                       </span>
                       <span className="match-date">
-                        {match.status === 'completed' && match.updated_at
-                          ? new Date(match.updated_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })
-                          : match.created_at
-                            ? new Date(match.created_at).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })
-                            : match.scheduled_date
-                              ? new Date(match.scheduled_date).toLocaleDateString('en-US', {
+                        {getMatchDateLabel(match)}: {getMatchDisplayDate(match).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'short',
-                          day: 'numeric'
-                                })
-                              : 'No date'
-                        }
+                          day: 'numeric',
+                          hour: match.status === 'completed' ? '2-digit' : undefined,
+                          minute: match.status === 'completed' ? '2-digit' : undefined
+                        })}
                       </span>
                     </div>
                     <div className="match-actions">
@@ -466,21 +474,18 @@ const getSelectedPlayerNames = () => {
                     </div>
                     <div className="match-info">
                       <span className="status-badge status-scheduled">
-                        {match.scheduled_date ? `Scheduled: ${new Date(match.scheduled_date).toLocaleDateString('en-US', {
+                        {match.scheduled_date ? `Scheduled for ${new Date(match.scheduled_date).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric'
                         })}` : 'Not Scheduled'}
                       </span>
                       <span className="match-date">
-                        Created: {match.created_at
-                          ? new Date(match.created_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })
-                          : 'No date'
-                        }
+                        Created: {new Date(match.created_at).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
                       </span>
                     </div>
                     <div className="match-actions">

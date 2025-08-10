@@ -1,10 +1,12 @@
 import { supabase } from './supabaseService';
 import { badmintonEloSystem } from '../utils/BadmintonEloSystem';
+import { eloSystemManager } from './eloSystemManager'; // Import the system manager
 
 /**
  * COMPLETE FIXED Unified ELO Service - Addresses both issues:
  * 1. Player rating history not updating on match score updates
  * 2. Sequential processing not working chronologically
+ * 3. Uses the selected ELO system from eloSystemManager
  */
 class UnifiedEloService {
   constructor() {
@@ -109,8 +111,8 @@ class UnifiedEloService {
 
       console.log(`Calculating ELO for: ${currentMatch.team1.name} ${team1Score} - ${team2Score} ${currentMatch.team2.name}`);
 
-      // Calculate ELO updates
-          const eloResult = badmintonEloSystem.processMatchResult(
+      // Calculate ELO updates using the currently selected system
+      const eloResult = eloSystemManager.processMatch(
             team1Players,
             team2Players,
         team1Score,
@@ -630,7 +632,7 @@ class UnifiedEloService {
           }
 
           // CRITICAL: Build player objects with CURRENT SEQUENTIAL ELO from tracker
-          const team1Players = match.team1.team_players.map(tp => {
+          const team1PlayersWithCurrentElo = match.team1.team_players.map(tp => {
             const tracker = playerEloTracker.get(tp.players.id);
             if (!tracker) {
               throw new Error(`Player ${tp.players.name} not found in ELO tracker`);
@@ -644,7 +646,7 @@ class UnifiedEloService {
             };
           });
 
-          const team2Players = match.team2.team_players.map(tp => {
+          const team2PlayersWithCurrentElo = match.team2.team_players.map(tp => {
             const tracker = playerEloTracker.get(tp.players.id);
             if (!tracker) {
               throw new Error(`Player ${tp.players.name} not found in ELO tracker`);
@@ -659,8 +661,8 @@ class UnifiedEloService {
           });
 
           // Log current ELO values
-          console.log(`   Team 1 ELOs: ${team1Players.map(p => `${p.name}:${p.elo_rating}`).join(', ')}`);
-          console.log(`   Team 2 ELOs: ${team2Players.map(p => `${p.name}:${p.elo_rating}`).join(', ')}`);
+          console.log(`   Team 1 ELOs: ${team1PlayersWithCurrentElo.map(p => `${p.name}:${p.elo_rating}`).join(', ')}`);
+          console.log(`   Team 2 ELOs: ${team2PlayersWithCurrentElo.map(p => `${p.name}:${p.elo_rating}`).join(', ')}`);
 
           // CRITICAL: Build team data with current sequential ELO from tracker
           const team1Data = {
@@ -675,9 +677,9 @@ class UnifiedEloService {
           console.log(`   Team 1 ELO: ${team1Data.team_elo_rating}, Team 2 ELO: ${team2Data.team_elo_rating}`);
 
           // Calculate ELO changes using current sequential values - INCLUDES TEAM ELO
-          const eloResult = badmintonEloSystem.processMatchResult(
-            team1Players,
-            team2Players,
+          const eloResult = eloSystemManager.processMatch(
+            team1PlayersWithCurrentElo,
+            team2PlayersWithCurrentElo,
             match.team1_score,
             match.team2_score,
             team1Data,  // Pass team data for team ELO calculation

@@ -1,5 +1,5 @@
 import { supabase } from './supabaseService.jsx';
-import { badmintonEloSystem } from '../utils/BadmintonEloSystem.jsx';
+import { eloSystemManager } from './eloSystemManager.js';
 
 /**
  * Create a new match with scores and process ELO updates
@@ -98,11 +98,13 @@ export async function createMatchWithScores(matchData) {
       team2: team2Players.map(p => `${p.name} (${p.elo_rating})`)
     });
     
-    const eloUpdates = badmintonEloSystem.processMatchResult(
+    const eloUpdates = eloSystemManager.processMatch(
       team1Players,
       team2Players,
       matchData.team1Score,
-      matchData.team2Score
+      matchData.team2Score,
+      newMatch.team1, // Pass team data for team ELO
+      newMatch.team2  // Pass team data for team ELO
     );
     
     console.log('📊 ELO updates calculated:', eloUpdates);

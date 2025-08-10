@@ -1,5 +1,6 @@
 import { supabase } from './supabaseService';
 import { badmintonEloSystem } from '../utils/BadmintonEloSystem';
+import { eloSystemManager } from './eloSystemManager'; // Import the system manager
 
 /**
  * Team ELO Processor - Handles team-specific ELO processing
@@ -120,8 +121,8 @@ class TeamEloProcessor {
 
           console.log(`   Team 1 ELO: ${team1Data.team_elo_rating}, Team 2 ELO: ${team2Data.team_elo_rating}`);
 
-          // Calculate ELO changes - focus on team ELO
-          const eloResult = badmintonEloSystem.processMatchResult(
+          // Calculate ELO changes - focus on team ELO using selected system
+          const eloResult = eloSystemManager.processMatch(
             team1Players,
             team2Players,
             match.team1_score,

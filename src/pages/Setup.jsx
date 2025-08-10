@@ -2,6 +2,8 @@ import React from 'react';
 import TeamEloHistoryPopulator from '../components/TeamEloHistoryPopulator';
 import PlayerStatsPopulator from '../components/PlayerStatsPopulator';
 import SequentialEloSetup from '../components/SequentialEloSetup';
+import EloSystemSelector from '../components/EloSystemSelector';
+import EloSystemSummary from '../components/EloSystemSummary';
 import { Settings, ArrowLeft, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -41,6 +43,12 @@ const Setup = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* ELO System Selection */}
+        <EloSystemSelector />
+
+        {/* ELO System Impact Summary */}
+        <EloSystemSummary />
+
         <div className="setup-sections" style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
           {/* Sequential ELO Processing - NEW RECOMMENDED METHOD */}
           <div className="setup-section">
