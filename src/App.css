@@ -950,6 +950,45 @@ body {
   margin-bottom: 2rem;
 }
 
+/* ELO System Selector Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 1000px;
+  }
+}
+
+/* ELO System Button Styles */
+.elo-system-button {
+  transition: all 0.2s ease;
+}
+
+.elo-system-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.elo-system-button:active {
+  transform: translateY(0);
+}
+
 .score-group {
   display: flex;
   flex-direction: column;

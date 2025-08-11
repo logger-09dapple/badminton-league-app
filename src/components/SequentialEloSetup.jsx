@@ -1,12 +1,27 @@
-import React, { useState } from 'react';
-import { Zap, CheckCircle, AlertCircle, TrendingUp, Users, Trophy, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Zap, CheckCircle, AlertCircle, TrendingUp, Users, Trophy, Clock, Settings, BarChart3 } from 'lucide-react';
 import { unifiedEloService } from '../services/unifiedEloServiceComplete'; // For complete and player processing
 import { teamEloProcessor } from '../services/teamEloProcessor'; // FIXED: For team-only processing
+import { eloSystemManager } from '../services/eloSystemManager'; // Import ELO system manager
 
 const SequentialEloSetup = () => {
   const [status, setStatus] = useState('idle');
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+  const [currentEloSystem, setCurrentEloSystem] = useState('standard');
+
+  // Update current ELO system when component mounts and when it changes
+  useEffect(() => {
+    const updateCurrentSystem = () => {
+      setCurrentEloSystem(eloSystemManager.getCurrentSystemName());
+    };
+
+    updateCurrentSystem();
+
+    // Set up a periodic check to catch system changes
+    const interval = setInterval(updateCurrentSystem, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // FIXED: Complete setup using unified service for both players and teams
   const handleCompleteSetup = async () => {
@@ -15,7 +30,9 @@ const SequentialEloSetup = () => {
       setError(null);
       setResults(null);
 
-      console.log('🚀 Starting Complete Setup with Unified ELO Processing...');
+      const systemDesc = eloSystemManager.getSystemDescriptions()[currentEloSystem];
+      console.log(`🚀 Starting Complete Setup with ${systemDesc.name} ELO System...`);
+      console.log(`📊 Margin scaling: ${systemDesc.marginSupport ? 'ENABLED' : 'DISABLED'}`);
 
       // Use the unified service for complete setup to handle both players and teams
       const result = await unifiedEloService.processSequentialElo();
@@ -27,7 +44,10 @@ const SequentialEloSetup = () => {
           processedMatches: result.processedMatches,
           updatedPlayers: result.updatedPlayers,
           updatedTeams: result.updatedTeams,
-          message: result.message || `Complete setup successful! Updated ${result.updatedPlayers} players and ${result.updatedTeams} teams with ELO progression.`
+          eloSystem: currentEloSystem,
+          eloSystemName: systemDesc.name,
+          marginScaling: systemDesc.marginSupport,
+          message: `Complete setup successful using ${systemDesc.name}! Updated ${result.updatedPlayers} players and ${result.updatedTeams} teams with ELO progression.`
         });
         setStatus('success');
       } else {
@@ -37,8 +57,8 @@ const SequentialEloSetup = () => {
     } catch (error) {
       console.error('💥 Complete setup failed:', error);
       setError(error.message);
-        setStatus('error');
-      }
+      setStatus('error');
+    }
   };
 
   const handleSequentialPlayerElo = async () => {
@@ -47,7 +67,8 @@ const SequentialEloSetup = () => {
       setError(null);
       setResults(null);
 
-      console.log('🎯 Starting Player-only Sequential ELO...');
+      const systemDesc = eloSystemManager.getSystemDescriptions()[currentEloSystem];
+      console.log(`🎯 Starting Player-only Sequential ELO with ${systemDesc.name}...`);
 
       // Use unified service for player processing
       const result = await unifiedEloService.processSequentialElo();
@@ -58,7 +79,10 @@ const SequentialEloSetup = () => {
           success: true,
           processedMatches: result.processedMatches,
           updatedPlayers: result.updatedPlayers,
-          message: `Player ELO processing complete! Processed ${result.processedMatches} matches and updated ${result.updatedPlayers} players.`
+          eloSystem: currentEloSystem,
+          eloSystemName: systemDesc.name,
+          marginScaling: systemDesc.marginSupport,
+          message: `Player ELO processing complete using ${systemDesc.name}! Processed ${result.processedMatches} matches and updated ${result.updatedPlayers} players.`
         });
         setStatus('success');
       } else {
@@ -79,7 +103,8 @@ const SequentialEloSetup = () => {
       setError(null);
       setResults(null);
 
-      console.log('🏆 Starting Team-only Sequential ELO...');
+      const systemDesc = eloSystemManager.getSystemDescriptions()[currentEloSystem];
+      console.log(`🏆 Starting Team-only Sequential ELO with ${systemDesc.name}...`);
 
       // Use dedicated team processor to avoid player history conflicts
       const result = await teamEloProcessor.processTeamEloSequentially();
@@ -90,7 +115,10 @@ const SequentialEloSetup = () => {
           success: true,
           processedMatches: result.processedMatches,
           updatedTeams: result.updatedTeams,
-          message: `Team ELO processing complete! Processed ${result.processedMatches} matches and updated ${result.updatedTeams} teams.`
+          eloSystem: currentEloSystem,
+          eloSystemName: systemDesc.name,
+          marginScaling: systemDesc.marginSupport,
+          message: `Team ELO processing complete using ${systemDesc.name}! Processed ${result.processedMatches} matches and updated ${result.updatedTeams} teams.`
         });
         setStatus('success');
       } else {
@@ -103,6 +131,9 @@ const SequentialEloSetup = () => {
       setStatus('error');
     }
   };
+
+  const systemDescriptions = eloSystemManager.getSystemDescriptions();
+  const currentSystemDesc = systemDescriptions[currentEloSystem];
 
   return (
     <div style={{
@@ -134,6 +165,77 @@ const SequentialEloSetup = () => {
             </p>
                 </div>
               </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{
+            backgroundColor: '#f8fafc',
+            border: '2px solid #e2e8f0',
+            borderRadius: '0.75rem',
+            padding: '1rem'
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <div style={{
+                width: '2rem',
+                height: '2rem',
+                backgroundColor: currentSystemDesc?.marginSupport ? '#dcfce7' : '#f3f4f6',
+            borderRadius: '0.5rem',
+                display: 'flex',
+              alignItems: 'center',
+                justifyContent: 'center'
+        }}>
+                <BarChart3 size={16} style={{ color: currentSystemDesc?.marginSupport ? '#059669' : '#6b7280' }} />
+              </div>
+              <div>
+                <h4 style={{ margin: '0', color: '#1f2937', fontSize: '1rem', fontWeight: '600' }}>
+                  Active ELO System: {currentSystemDesc?.name}
+                </h4>
+                <p style={{ margin: '0', color: '#6b7280', fontSize: '0.75rem' }}>
+                  {currentSystemDesc?.description}
+                </p>
+              </div>
+              </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              padding: '0.75rem',
+              backgroundColor: currentSystemDesc?.marginSupport ? '#ecfdf5' : '#f9fafb',
+              borderRadius: '0.5rem',
+              border: `1px solid ${currentSystemDesc?.marginSupport ? '#d1fae5' : '#e5e7eb'}`
+            }}>
+              <div style={{ fontSize: '1.25rem' }}>
+                {currentSystemDesc?.marginSupport ? '📊' : '⚖️'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{
+                  margin: '0',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  color: currentSystemDesc?.marginSupport ? '#065f46' : '#374151'
+                }}>
+                  {currentSystemDesc?.marginSupport
+                    ? `✅ Margin Scaling Active`
+                    : `📊 Standard Binary ELO`
+                  }
+                </p>
+                <p style={{
+                  margin: '0',
+                  fontSize: '0.75rem',
+                  color: currentSystemDesc?.marginSupport ? '#047857' : '#6b7280'
+                }}>
+                  {currentSystemDesc?.marginSupport
+                    ? `Setup will reward larger victory margins with ELO bonuses`
+                    : `Setup treats all victories equally regardless of score margin`
+                  }
+                </p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#6b7280' }}>
+              💡 Change ELO system using the selector above before running setup
+            </div>
+          </div>
+        </div>
 
         <div style={{
           backgroundColor: '#ecfdf5',
@@ -200,7 +302,23 @@ const SequentialEloSetup = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
               <CheckCircle size={18} style={{ color: '#059669' }} />
               <strong style={{ color: '#065f46' }}>✅ Setup Complete!</strong>
+            </div>
+          <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              marginBottom: '0.75rem',
+              padding: '0.5rem',
+              backgroundColor: '#d1fae5',
+              borderRadius: '0.375rem'
+            }}>
+              <BarChart3 size={14} style={{ color: '#047857' }} />
+              <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: '600' }}>
+                Used {results.eloSystemName} ELO System
+                {results.marginScaling && ' (with margin scaling)'}
+              </span>
                       </div>
+
             <p style={{ margin: '0 0 0.75rem 0', color: '#047857', fontSize: '0.875rem' }}>
               {results.message}
             </p>
@@ -225,9 +343,23 @@ const SequentialEloSetup = () => {
                   <div style={{ color: '#92400e' }}>Teams Updated</div>
                 </div>
                     )}
-                      </div>
-                      </div>
-                    )}
+            </div>
+
+            {results.marginScaling && (
+              <div style={{
+                marginTop: '0.75rem',
+                padding: '0.75rem',
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '0.375rem'
+              }}>
+                <p style={{ margin: '0', fontSize: '0.75rem', color: '#047857' }}>
+                  🎯 <strong>Margin Scaling Applied:</strong> Players received ELO bonuses for decisive victories during setup processing.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {status === 'error' && error && (
           <div style={{
@@ -269,7 +401,12 @@ const SequentialEloSetup = () => {
             }}
           >
             <CheckCircle size={18} />
-            {status === 'running' ? 'Processing...' : 'Complete Setup (Recommended)'}
+            <div style={{ textAlign: 'center' }}>
+              <div>{status === 'running' ? 'Processing...' : 'Complete Setup'}</div>
+              <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                {status === 'running' ? 'Please wait...' : `Using ${currentSystemDesc?.name}`}
+              </div>
+            </div>
           </button>
 
           <button
@@ -292,7 +429,12 @@ const SequentialEloSetup = () => {
             }}
           >
             <Users size={18} />
-            Player ELO Only
+            <div style={{ textAlign: 'center' }}>
+              <div>Player ELO Only</div>
+              <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                {currentSystemDesc?.name}
+              </div>
+            </div>
           </button>
 
           <button
@@ -315,7 +457,12 @@ const SequentialEloSetup = () => {
             }}
           >
             <Trophy size={18} />
-            Team ELO Only
+            <div style={{ textAlign: 'center' }}>
+              <div>Team ELO Only</div>
+              <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                {currentSystemDesc?.name}
+              </div>
+            </div>
           </button>
                       </div>
 
