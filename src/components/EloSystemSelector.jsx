@@ -1,30 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Info, BarChart3, Zap } from 'lucide-react';
+import { Settings, Info, BarChart3, Zap, RefreshCw } from 'lucide-react';
 import { eloSystemManager } from '../services/eloSystemManager';
 
 const EloSystemSelector = () => {
   const [currentSystem, setCurrentSystem] = useState('standard');
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [persistenceStatus, setPersistenceStatus] = useState('checking');
 
   useEffect(() => {
-    setCurrentSystem(eloSystemManager.getCurrentSystemName());
-  }, []);
-
-  const handleSystemChange = (systemName) => {
-    if (eloSystemManager.setSystem(systemName)) {
+    const initializeSystem = async () => {
+      setIsLoading(true);
+      try {
+        // Wait for async initialization if needed
+        const systemName = await eloSystemManager.getCurrentSystemAsync();
       setCurrentSystem(systemName);
-      console.log(`✅ ELO system changed to: ${systemName}`);
-      
-      // Show prominent confirmation
-      setShowConfirmation(true);
-      setTimeout(() => setShowConfirmation(false), 4000);
+        setPersistenceStatus('ready');
+        console.log(`🎯 ELO System Selector initialized with: ${systemName}`);
+      } catch (error) {
+        console.warn('Error initializing ELO system:', error);
+        setCurrentSystem(eloSystemManager.getCurrentSystemName());
+        setPersistenceStatus('localStorage-only');
+      } finally {
+        setIsLoading(false);
     }
   };
+
+    initializeSystem();
+  }, []);
+
+  const handleSystemChange = async (systemName) => {
+    setIsLoading(true);
+    try {
+      if (eloSystemManager.setSystem(systemName)) {
+        setCurrentSystem(systemName);
+        console.log(`✅ ELO system changed to: ${systemName}`);
+
+        // Show prominent confirmation
+        setShowConfirmation(true);
+        setTimeout(() => setShowConfirmation(false), 5000);
+
+        // Update persistence status
+        setPersistenceStatus('ready');
+      } else {
+        console.error(`Failed to set ELO system: ${systemName}`);
+      }
+    } catch (error) {
+      console.error('Error changing ELO system:', error);
+      setPersistenceStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
+};
 
   const systemDescriptions = eloSystemManager.getSystemDescriptions();
   const availableSystems = eloSystemManager.getAvailableSystems();
   const currentDesc = systemDescriptions[currentSystem];
+
+  if (isLoading && !currentDesc) {
+    return (
+      <div className="elo-system-selector mb-6">
+        <div style={{
+          background: 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)',
+          color: 'white',
+          padding: '1.5rem',
+          borderRadius: '1rem',
+          marginBottom: '1rem',
+          boxShadow: '0 8px 25px -8px rgba(0, 0, 0, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1rem'
+        }}>
+          <RefreshCw size={24} className="animate-spin" />
+          <span>Loading ELO system configuration...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="elo-system-selector mb-6">
@@ -49,15 +103,15 @@ const EloSystemSelector = () => {
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            {currentDesc?.marginSupport ? 
-              <BarChart3 size={24} /> : 
+            {currentDesc?.marginSupport ?
+              <BarChart3 size={24} /> :
               <Settings size={24} />
             }
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ 
-              fontSize: '1.25rem', 
-              fontWeight: 'bold', 
+            <div style={{
+              fontSize: '1.25rem',
+              fontWeight: 'bold',
               marginBottom: '0.25rem',
               display: 'flex',
               alignItems: 'center',
@@ -75,6 +129,22 @@ const EloSystemSelector = () => {
                   MARGIN SCALING
                 </span>
               )}
+              {/* Persistence Status Indicator */}
+              <span style={{
+                backgroundColor: persistenceStatus === 'ready' ? 'rgba(34, 197, 94, 0.3)' :
+                                 persistenceStatus === 'localStorage-only' ? 'rgba(251, 191, 36, 0.3)' :
+                                 persistenceStatus === 'error' ? 'rgba(239, 68, 68, 0.3)' :
+                                 'rgba(156, 163, 175, 0.3)',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '0.375rem',
+                fontSize: '0.7rem',
+                fontWeight: '500'
+              }}>
+                {persistenceStatus === 'ready' ? '💾 SAVED' :
+                 persistenceStatus === 'localStorage-only' ? '💻 LOCAL' :
+                 persistenceStatus === 'error' ? '⚠️ ERROR' :
+                 '⏳ CHECKING'}
+              </span>
             </div>
             <p style={{ margin: '0', opacity: 0.9, fontSize: '0.9rem' }}>
               {currentDesc?.description}
@@ -82,21 +152,23 @@ const EloSystemSelector = () => {
           </div>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
+            disabled={isLoading}
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
               border: '1px solid rgba(255, 255, 255, 0.2)',
               color: 'white',
               padding: '0.5rem 1rem',
               borderRadius: '0.5rem',
-              cursor: 'pointer',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
               fontSize: '0.875rem',
               fontWeight: '500',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              opacity: isLoading ? 0.7 : 1
             }}
-            onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
-            onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+            onMouseOver={(e) => !isLoading && (e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)')}
+            onMouseOut={(e) => !isLoading && (e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
           >
-            {isExpanded ? 'Hide Options' : 'Change System'}
+            {isLoading ? 'Loading...' : isExpanded ? 'Hide Options' : 'Change System'}
           </button>
         </div>
 
@@ -126,6 +198,33 @@ const EloSystemSelector = () => {
             )}
           </div>
         </div>
+
+        {/* Persistence Status Details */}
+        {persistenceStatus === 'localStorage-only' && (
+          <div style={{
+            backgroundColor: 'rgba(251, 191, 36, 0.2)',
+            border: '1px solid rgba(251, 191, 36, 0.3)',
+            borderRadius: '0.5rem',
+            padding: '0.75rem',
+            marginTop: '1rem',
+            fontSize: '0.875rem'
+          }}>
+            💻 <strong>Using local storage only.</strong> Settings will persist on this device but won't sync across devices.
+          </div>
+        )}
+
+        {persistenceStatus === 'error' && (
+          <div style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '0.5rem',
+            padding: '0.75rem',
+            marginTop: '1rem',
+            fontSize: '0.875rem'
+          }}>
+            ⚠️ <strong>Persistence error.</strong> Settings saved locally but database sync failed.
+          </div>
+        )}
       </div>
 
       {/* Confirmation Message */}
@@ -156,11 +255,35 @@ const EloSystemSelector = () => {
               </p>
               <p style={{ margin: '0', fontSize: '0.85rem', marginTop: '0.25rem' }}>
                 All setup processing and future matches will now use this system.
+                {persistenceStatus === 'ready' && ' Settings saved to database and will persist across devices.'}
+                {persistenceStatus === 'localStorage-only' && ' Settings saved locally to this device only.'}
               </p>
             </div>
           </div>
         </div>
       )}
+
+      {/* Database Setup Help */}
+      {persistenceStatus === 'localStorage-only' && !showConfirmation && (
+        <div style={{
+          backgroundColor: '#fef9c3',
+          border: '1px solid #facc15',
+          borderRadius: '0.75rem',
+          padding: '1rem',
+              marginBottom: '1rem'
+            }}>
+          <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem' }}>
+            <Info size={20} style={{ color: '#ca8a04', marginTop: '0.125rem', flexShrink: 0 }} />
+                <div style={{ fontSize: '0.875rem', color: '#92400e' }}>
+              <strong>Want settings to persist across devices?</strong>
+              <p style={{ margin: '0.5rem 0 0 0' }}>
+                Create a <code style={{ backgroundColor: 'rgba(0,0,0,0.1)', padding: '0.125rem 0.25rem', borderRadius: '0.25rem' }}>league_settings</code> table
+                in your Supabase database. See the console for SQL setup instructions, or check the documentation.
+              </p>
+              </div>
+            </div>
+          </div>
+                    )}
 
       {/* System Options (Expandable) */}
       {isExpanded && (
@@ -178,7 +301,6 @@ const EloSystemSelector = () => {
                 Choose ELO Calculation System
               </h3>
             </div>
-            
             <div style={{
               backgroundColor: '#fef3c7',
               border: '1px solid #fbbf24',
@@ -191,9 +313,9 @@ const EloSystemSelector = () => {
                 <div style={{ fontSize: '0.875rem', color: '#92400e' }}>
                   <strong>Important:</strong> Your selection will immediately affect all ELO calculations including setup processing buttons below.
                 </div>
-              </div>
-            </div>
           </div>
+          </div>
+        </div>
 
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             {availableSystems.map(systemName => {
@@ -239,10 +361,10 @@ const EloSystemSelector = () => {
                     }}>
                       {isActive && <div style={{ width: '0.5rem', height: '0.5rem', backgroundColor: 'white', borderRadius: '50%' }} />}
                     </div>
-                    
-                    <h4 style={{ 
-                      margin: '0', 
-                      fontSize: '1rem', 
+
+                    <h4 style={{
+                      margin: '0',
+                      fontSize: '1rem',
                       fontWeight: '600',
                       color: isActive ? '#065f46' : '#374151'
                     }}>
@@ -262,19 +384,19 @@ const EloSystemSelector = () => {
                       </span>
                     )}
                   </div>
-                  
-                  <p style={{ 
-                    margin: '0', 
-                    fontSize: '0.875rem', 
+
+                  <p style={{
+                    margin: '0',
+                    fontSize: '0.875rem',
                     color: isActive ? '#047857' : '#6b7280',
                     lineHeight: 1.4
                   }}>
                     {desc.description}
                   </p>
-                  
-                  <p style={{ 
-                    margin: '0', 
-                    fontSize: '0.75rem', 
+
+                  <p style={{
+                    margin: '0',
+                    fontSize: '0.75rem',
                     color: isActive ? '#065f46' : '#9ca3af',
                     marginTop: '0.25rem'
                   }}>

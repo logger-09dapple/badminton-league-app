@@ -1,10 +1,11 @@
 // ELO System Manager - Easily switch between different ELO implementations
 import { badmintonEloSystem, BadmintonEloSystem } from '../utils/BadmintonEloSystem';
 import { FootballEloScalingSystem, footballEloSystem } from '../utils/FootballEloScalingSystem';
+import { leagueSettingsService } from './leagueSettingsService';
 
 /**
  * ELO System Manager
- * Provides easy switching between different ELO calculation methods
+ * Provides easy switching between different ELO calculation methods with persistence
  */
 export class EloSystemManager {
   constructor() {
@@ -62,23 +63,120 @@ export class EloSystemManager {
       })
     };
     
-    // Current active system
-    this.currentSystem = 'standard';
+    // Load saved system or default to 'standard'
+    this.currentSystem = this.loadSavedSystem();
+    this.isInitialized = false;
+
+    // Initialize database persistence asynchronously
+    this.initializeAsync();
+
+    console.log(`🎯 ELO System Manager initialized with: ${this.currentSystem}`);
   }
 
   /**
-   * Set the active ELO system
+   * Initialize database persistence asynchronously
+   */
+  async initializeAsync() {
+    try {
+      // Try to load from database
+      const dbSystem = await leagueSettingsService.getSetting('elo_system', 'standard');
+
+      // If database has a different system than localStorage, use database value
+      if (dbSystem && dbSystem !== this.currentSystem && this.systems[dbSystem]) {
+        this.currentSystem = dbSystem;
+        // Update localStorage to match
+        this.saveToLocalStorage(dbSystem);
+        console.log(`🔄 Updated ELO system from database: ${dbSystem}`);
+      } else if (this.currentSystem !== 'standard') {
+        // If localStorage has a non-default value, save to database
+        await leagueSettingsService.setSetting('elo_system', this.currentSystem);
+        console.log(`📤 Synced localStorage ELO system to database: ${this.currentSystem}`);
+      }
+
+      this.isInitialized = true;
+      } catch (error) {
+      console.warn('Database persistence not available, using localStorage only:', error.message);
+      this.isInitialized = true;
+      }
+  }
+
+  /**
+   * Load the saved ELO system from localStorage (immediate fallback)
+   */
+  loadSavedSystem() {
+    try {
+      const saved = localStorage.getItem('badminton-league-elo-system');
+      if (saved && this.systems[saved]) {
+        console.log(`📁 Loaded saved ELO system from localStorage: ${saved}`);
+        return saved;
+      }
+      } catch (error) {
+      console.warn('Failed to load saved ELO system from localStorage:', error);
+      }
+
+    console.log('📁 No saved ELO system found, using default: standard');
+    return 'standard';
+  }
+  /**
+   * Save to localStorage (immediate)
+   */
+  saveToLocalStorage(systemName) {
+    try {
+      localStorage.setItem('badminton-league-elo-system', systemName);
+      console.log(`💾 Saved ELO system to localStorage: ${systemName}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to save ELO system to localStorage:', error);
+      return false;
+    }
+  }
+  /**
+   * Save to database (persistent)
+   */
+  async saveToDatabase(systemName) {
+    try {
+      const success = await leagueSettingsService.setSetting('elo_system', systemName);
+      if (success) {
+        console.log(`💾 Saved ELO system to database: ${systemName}`);
+      }
+      return success;
+    } catch (error) {
+      console.error('Failed to save ELO system to database:', error);
+      return false;
+    }
+  }
+  /**
+   * Set the active ELO system with dual persistence (localStorage + database)
    */
   setSystem(systemName) {
     if (this.systems[systemName]) {
       this.currentSystem = systemName;
-      console.log(`🎯 ELO System switched to: ${systemName}`);
+
+      // Save immediately to localStorage
+      this.saveToLocalStorage(systemName);
+
+      // Save to database asynchronously
+      this.saveToDatabase(systemName).catch(error => {
+        console.warn('Database save failed, but localStorage succeeded:', error.message);
+      });
+
+      console.log(`🎯 ELO System switched to: ${systemName} (persisted)`);
       return true;
     } else {
       console.error(`❌ Unknown ELO system: ${systemName}`);
       return false;
-    }
   }
+  }
+
+  /**
+   * Get current system with async database check
+   */
+  async getCurrentSystemAsync() {
+    if (!this.isInitialized) {
+      await this.initializeAsync();
+  }
+    return this.currentSystem;
+}
 
   /**
    * Get the current active system
@@ -96,23 +194,23 @@ export class EloSystemManager {
     // Use FIFA-specific method if available
     if (this.currentSystem === 'fifa' && system.processFootballEloMatchResult) {
       return system.processFootballEloMatchResult(
-        team1Players, 
-        team2Players, 
-        team1Score, 
-        team2Score, 
+        team1Players,
+        team2Players,
+        team1Score,
+        team2Score,
         matchImportance,
         team1Data, 
         team2Data
       );
-    }
-    
+  }
+
     // Use standard method for all other systems
     return system.processMatchResult(
-      team1Players, 
-      team2Players, 
-      team1Score, 
-      team2Score, 
-      team1Data, 
+      team1Players,
+      team2Players,
+      team1Score,
+      team2Score,
+      team1Data,
       team2Data
     );
   }
@@ -159,9 +257,9 @@ export class EloSystemManager {
             player2Change: player2Update.ratingChange,
             marginMultiplier: player1Update.marginMultiplier || 1.0,
             system: systemName
-          };
-        }
-        
+  };
+}
+
       } catch (error) {
         console.log(`Error with ${systemName}: ${error.message}`);
         results[systemName] = { error: error.message };

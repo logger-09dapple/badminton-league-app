@@ -637,10 +637,10 @@ const Statistics = () => {
             <h2>Player Rankings (Professional Sports System)</h2>
             <div className="ranking-info">
               <p className="text-sm text-gray-600 mb-2">
-                📊 <strong>Ranking System:</strong> Qualified players (5+ matches) ranked by: ELO Rating + Experience Bonus + Win Rate Adjustment + Recent Form
+                📊 <strong>Ranking System:</strong> Qualified players (10+ matches) ranked by: ELO Rating + Experience Bonus + Win Rate Adjustment + Recent Form
               </p>
               <p className="text-sm text-gray-500 mb-3">
-                Unqualified players (less than 5 matches) are shown below qualified players and ranked by raw ELO rating
+                Unqualified players (less than 10 matches) are shown below qualified players and ranked by raw ELO rating
               </p>
             </div>
             <div className="ranking-controls">
