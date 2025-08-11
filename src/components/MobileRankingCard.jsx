@@ -77,6 +77,14 @@ const MobileRankingCard = ({
         <div className="col-stat" data-label={isPlayer ? "ELO" : "Team ELO"}>
           <span className="stat-value elo-rating">
             {isPlayer ? item.eloRating : item.teamEloRating}
+            {isPlayer && item.rankingScore && item.rankingScore !== item.eloRating && (
+              <span className="ranking-score" title={`Ranking Score: ${item.rankingScore} (ELO + adjustments)`}>
+                ({item.rankingScore})
+              </span>
+            )}
+            {isPlayer && !item.isQualified && (
+              <span className="unqualified-indicator" title="Needs 5+ matches for qualified ranking">❓</span>
+            )}
           </span>
         </div>
         <div className="col-stat" data-label="Points">
@@ -166,8 +174,18 @@ const MobileRankingCard = ({
             <div className="mobile-stat-label">{isPlayer ? 'ELO Rating' : 'Team ELO'}</div>
             <div className="mobile-stat-value elo-rating">
               {isPlayer ? item.eloRating : item.teamEloRating}
+              {isPlayer && item.rankingScore && item.rankingScore !== item.eloRating && (
+                <div className="mobile-ranking-score" title={`Ranking Score: ${item.rankingScore} (ELO + adjustments)`}>
+                  Score: {item.rankingScore}
+                </div>
+              )}
+              {isPlayer && !item.isQualified && (
+                <span className="mobile-unqualified-indicator" title="Needs 5+ matches for qualified ranking">
+                  (Unqualified)
+                </span>
+              )}
+            </div>
           </div>
-        </div>
           <div className="mobile-stat-item">
             <div className="mobile-stat-label">Points</div>
             <div className="mobile-stat-value">{item.points || 0}</div>

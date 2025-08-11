@@ -219,11 +219,11 @@ const ChartsAndGraphs = ({
           </div>
           <div className="stat-item">
             <span className="stat-label">Win Rate:</span>
-            <span className="stat-value">{performanceTrends[performanceTrends.length - 1]?.winRate.toFixed(1)}%</span>
+            <span className="stat-value">{performanceTrends[performanceTrends.length - 1]?.winRate?.toFixed(1) || '0.0'}%</span>
           </div>
           <div className="stat-item">
             <span className="stat-label">Avg Points:</span>
-            <span className="stat-value">{performanceTrends[performanceTrends.length - 1]?.averagePoints.toFixed(1)}</span>
+            <span className="stat-value">{performanceTrends[performanceTrends.length - 1]?.avgPointsPerMatch?.toFixed(1) || '0.0'}</span>
           </div>
           {performanceTrends[performanceTrends.length - 1]?.eloRating && (
             <div className="stat-item">
@@ -412,19 +412,19 @@ const ChartsAndGraphs = ({
           </div>
           <div className="stat-item">
             <span className="stat-label">{player1Name} Win Rate:</span>
-            <span className="stat-value">{headToHeadData.entity1WinRate.toFixed(1)}%</span>
+            <span className="stat-value">{headToHeadData.entity1WinRate?.toFixed(1) || '0.0'}%</span>
           </div>
           <div className="stat-item">
             <span className="stat-label">{player2Name} Win Rate:</span>
-            <span className="stat-value">{headToHeadData.entity2WinRate.toFixed(1)}%</span>
+            <span className="stat-value">{headToHeadData.entity2WinRate?.toFixed(1) || '0.0'}%</span>
           </div>
           <div className="stat-item">
             <span className="stat-label">{player1Name} Avg Points:</span>
-            <span className="stat-value">{headToHeadData.averagePointsEntity1.toFixed(1)}</span>
+            <span className="stat-value">{headToHeadData.averagePointsEntity1?.toFixed(1) || '0.0'}</span>
           </div>
           <div className="stat-item">
             <span className="stat-label">{player2Name} Avg Points:</span>
-            <span className="stat-value">{headToHeadData.averagePointsEntity2.toFixed(1)}</span>
+            <span className="stat-value">{headToHeadData.averagePointsEntity2?.toFixed(1) || '0.0'}</span>
           </div>
         </div>
       </div>

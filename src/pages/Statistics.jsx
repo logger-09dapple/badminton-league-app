@@ -61,6 +61,7 @@ const Statistics = () => {
         // FIXED: Use updated_at for proper chronological order of when matches were actually played
         .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
         .slice(0, 5); // Take last 5 matches
+
       if (recentMatches.length === 0) return 'N/A';
       
       const wins = recentMatches.filter(match => 
@@ -160,7 +161,7 @@ const Statistics = () => {
     }
   }, [players, teams, matches]);
 
-  // Calculate player statistics with enhanced metrics - SORTED BY ELO RATING with matches consideration
+  // Calculate player statistics with enhanced metrics - IMPROVED RANKING SYSTEM
   const playerStats = useMemo(() => {
     if (!players || !Array.isArray(players) || !filteredMatches) return [];
     
@@ -172,13 +173,49 @@ const Statistics = () => {
               ? ((player.matches_won / player.matches_played) * 100).toFixed(1)
               : '0.0';
             
+            // Calculate a "Ranking Score" similar to professional sports
+            // This considers: ELO, matches played (experience), win rate, recent form
+            const minMatches = 5; // Minimum matches for "qualified" ranking
+            const hasMinMatches = (player.matches_played || 0) >= minMatches;
+
+            // Base ELO score
+            let rankingScore = player.elo_rating || 1500;
+
+            // Apply penalties/bonuses based on experience and performance
+            if (hasMinMatches) {
+              // Bonus for having sufficient match experience (up to +100 points)
+              const experienceBonus = Math.min(50, (player.matches_played || 0) * 2);
+              rankingScore += experienceBonus;
+
+              // Win rate adjustment (can add/subtract up to 50 points)
+              const winRateAdjustment = (parseFloat(winRate) - 50) * 1; // 60% win rate = +10, 40% = -10
+              rankingScore += winRateAdjustment;
+            } else {
+              // Penalty for insufficient matches (reduces ranking significantly)
+              const matchDeficit = minMatches - (player.matches_played || 0);
+              const inexperiencePenalty = matchDeficit * 25; // -25 per missing match
+              rankingScore -= inexperiencePenalty;
+            }
+
+            // Recent form bonus (good recent form can add up to 25 points)
+            const recentForm = calculateRecentForm(player.id, filteredMatches);
+            if (recentForm !== 'N/A' && recentForm.includes('/')) {
+              const [wins, total] = recentForm.split('/').map(Number);
+              const recentWinRate = wins / total;
+              if (recentWinRate > 0.6) {
+                rankingScore += (recentWinRate - 0.6) * 62.5; // Max +25 for 100% recent form
+              }
+            }
             return {
               ...player,
               winRate: parseFloat(winRate),
               rank: 0, // Will be calculated after sorting
               eloRating: player.elo_rating || 1500,
-              recentForm: calculateRecentForm(player.id, filteredMatches),
-              hasPlayedMatches: (player.matches_played || 0) > 0
+              rankingScore: Math.round(rankingScore),
+              recentForm: recentForm,
+              hasPlayedMatches: (player.matches_played || 0) > 0,
+              hasMinMatches: hasMinMatches,
+              isQualified: hasMinMatches // Flag for qualified vs unqualified players
             };
           } catch (error) {
             console.warn(`Error processing player ${player?.name}:`, error);
@@ -187,27 +224,32 @@ const Statistics = () => {
               winRate: 0,
               rank: 0,
               eloRating: 1500,
+              rankingScore: 1400, // Lower score for error cases
               recentForm: 'N/A',
-              hasPlayedMatches: false
+              hasPlayedMatches: false,
+              hasMinMatches: false,
+              isQualified: false
             };
           }
         })
         .sort((a, b) => {
-          // First, prioritize players who have played matches
-          if (a.hasPlayedMatches && !b.hasPlayedMatches) return -1;
-          if (!a.hasPlayedMatches && b.hasPlayedMatches) return 1;
+          // Professional sports ranking logic:
+          // 1. Qualified players (min matches) always rank above unqualified
+          if (a.isQualified && !b.isQualified) return -1;
+          if (!a.isQualified && b.isQualified) return 1;
 
-          // For players who have played matches, sort by ELO rating
-          if (a.hasPlayedMatches && b.hasPlayedMatches) {
-          if (b.eloRating !== a.eloRating) return b.eloRating - a.eloRating;
-            // If ELO is same, sort by matches played (more experienced first)
-            if (b.matches_played !== a.matches_played) return (b.matches_played || 0) - (a.matches_played || 0);
+          // 2. For qualified players, use ranking score (ELO + adjustments)
+          if (a.isQualified && b.isQualified) {
+            if (b.rankingScore !== a.rankingScore) return b.rankingScore - a.rankingScore;
           }
 
-          // For players without matches, sort by ELO rating still
-          if (b.eloRating !== a.eloRating) return b.eloRating - a.eloRating;
+          // 3. For unqualified players, sort by raw ELO, then matches played
+          if (!a.isQualified && !b.isQualified) {
+            if (b.eloRating !== a.eloRating) return b.eloRating - a.eloRating;
+            return (b.matches_played || 0) - (a.matches_played || 0);
+          }
 
-          // Final tiebreakers
+          // 4. Final tiebreakers for qualified players
           if (b.points !== a.points) return (b.points || 0) - (a.points || 0);
           if (b.winRate !== a.winRate) return b.winRate - a.winRate;
           return (b.matches_won || 0) - (a.matches_won || 0);
@@ -225,7 +267,6 @@ const Statistics = () => {
   // Calculate team statistics - Enhanced with actual team ELO ratings
   const teamStats = useMemo(() => {
     if (!teams || !Array.isArray(teams)) return [];
-
     try {
       return teams
         .map(team => {
@@ -307,16 +348,19 @@ const Statistics = () => {
   // State for actual performance trends with ELO history
   const [actualPerformanceTrends, setActualPerformanceTrends] = useState([]);
   const [trendsLoading, setTrendsLoading] = useState(false);
+  const [trendsError, setTrendsError] = useState(null);
 
   // Load actual performance trends with ELO history
   useEffect(() => {
     const loadPerformanceTrends = async () => {
       if (!filteredMatches || (!selectedPlayer && !selectedTeam)) {
         setActualPerformanceTrends([]);
+        setTrendsError(null);
         return;
       }
 
       setTrendsLoading(true);
+      setTrendsError(null);
       try {
         let trends = [];
 
@@ -333,6 +377,8 @@ const Statistics = () => {
         setActualPerformanceTrends(trends);
     } catch (error) {
         console.error('Error loading performance trends:', error);
+        setTrendsError(`Failed to load performance data: ${error.message}`);
+
         // Fallback to old calculation
         try {
           if (selectedPlayer) {
@@ -345,6 +391,7 @@ const Statistics = () => {
         } catch (fallbackError) {
           console.error('Fallback calculation also failed:', fallbackError);
           setActualPerformanceTrends([]);
+          setTrendsError('Unable to load performance data. Please try selecting a different player/team.');
         }
       } finally {
         setTrendsLoading(false);
@@ -587,7 +634,15 @@ const Statistics = () => {
       {activeTab === 'players' && (
         <div className="rankings-section">
           <div className="section-header">
-            <h2>Player Rankings (Sorted by ELO Rating)</h2>
+            <h2>Player Rankings (Professional Sports System)</h2>
+            <div className="ranking-info">
+              <p className="text-sm text-gray-600 mb-2">
+                📊 <strong>Ranking System:</strong> Qualified players (5+ matches) ranked by: ELO Rating + Experience Bonus + Win Rate Adjustment + Recent Form
+              </p>
+              <p className="text-sm text-gray-500 mb-3">
+                Unqualified players (less than 5 matches) are shown below qualified players and ranked by raw ELO rating
+              </p>
+            </div>
             <div className="ranking-controls">
               <select
                 value={selectedPlayer || ''}
@@ -596,11 +651,10 @@ const Statistics = () => {
                 <option value="">Select player for analysis...</option>
                 {playerStats.map(player => (
                   <option key={player.id} value={player.id}>
-                    {player.name} (ELO: {player.eloRating})
+                    {player.name} (ELO: {player.eloRating}, Score: {player.rankingScore})
                   </option>
                 ))}
               </select>
-              
               {selectedPlayer && (
                 <select
                   value={comparePlayer || ''}
@@ -617,7 +671,7 @@ const Statistics = () => {
             </div>
           </div>
 
-          {selectedPlayer && actualPerformanceTrends.length > 0 && (
+          {selectedPlayer && (
             <div className="player-analysis">
               <h3>Performance Analysis - {selectedPlayerName}</h3>
               {trendsLoading && (
@@ -626,7 +680,24 @@ const Statistics = () => {
                   <p>Loading ELO progression...</p>
             </div>
           )}
-              {!trendsLoading && (
+              {trendsError && (
+                <div className="error-state">
+                  <p>{trendsError}</p>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setTrendsError(null);
+                      // Trigger reload by clearing and resetting the selected player
+                      const current = selectedPlayer;
+                      setSelectedPlayer(null);
+                      setTimeout(() => setSelectedPlayer(current), 100);
+                    }}
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+              {!trendsLoading && !trendsError && actualPerformanceTrends.length > 0 && (
                 <>
               <ChartsAndGraphs
                 type="performance"
@@ -644,14 +715,19 @@ const Statistics = () => {
                         </>
             ) : (
                         <>⚠️ Using estimated ELO progression (no stored history found)</>
-            )}
-                  </p>
-                </div>
-                </>
       )}
+                    </p>
     </div>
-          )}
-          
+                </>
+              )}
+              {!trendsLoading && !trendsError && actualPerformanceTrends.length === 0 && selectedPlayer && (
+              <div className="empty-state">
+                  <p>No completed matches found for this player</p>
+                </div>
+              )}
+              </div>
+            )}
+
           {trendsLoading && selectedPlayer && (
             <div className="loading-trends">
               <div className="loading-spinner"></div>
@@ -667,9 +743,9 @@ const Statistics = () => {
                 headToHeadData={headToHeadData}
                 selectedPlayerName={selectedPlayerName}
                 comparePlayerName={comparePlayerName}
-              />
-            </div>
-          )}
+                  />
+                </div>
+      )}
 
           <div className="rankings-table">
             <div className="table-header">
@@ -682,8 +758,8 @@ const Statistics = () => {
               <div className="col-stat">Wins</div>
               <div className="col-stat">Win Rate</div>
               <div className="col-stat">Form</div>
-            </div>
-            
+    </div>
+
             {playerStats.length === 0 ? (
               <div className="empty-state">
                 <Users size={48} />
@@ -726,7 +802,7 @@ const Statistics = () => {
             </div>
           </div>
 
-          {selectedTeam && actualPerformanceTrends.length > 0 && (
+          {selectedTeam && (
             <div className="team-analysis">
               <h3>Team Performance Analysis - {selectedTeamName}</h3>
               {trendsLoading && (
@@ -735,7 +811,24 @@ const Statistics = () => {
                   <p>Loading team ELO progression...</p>
             </div>
           )}
-              {!trendsLoading && (
+              {trendsError && (
+                <div className="error-state">
+                  <p>{trendsError}</p>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setTrendsError(null);
+                      // Trigger reload by clearing and resetting the selected team
+                      const current = selectedTeam;
+                      setSelectedTeam(null);
+                      setTimeout(() => setSelectedTeam(current), 100);
+                    }}
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+              {!trendsLoading && !trendsError && actualPerformanceTrends.length > 0 && (
                 <>
                   <ChartsAndGraphs
                     type="performance"
@@ -757,6 +850,11 @@ const Statistics = () => {
                     </p>
     </div>
                 </>
+              )}
+              {!trendsLoading && !trendsError && actualPerformanceTrends.length === 0 && selectedTeam && (
+                <div className="empty-state">
+                  <p>No completed matches found for this team</p>
+                </div>
               )}
             </div>
           )}

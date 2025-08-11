@@ -199,6 +199,19 @@
   overflow-x: auto; /* FIXED: Allow horizontal scroll if needed */
 }
   
+.ranking-info {
+  margin-bottom: 1rem;
+    padding: 1rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 0.5rem;
+  }
+
+.ranking-info p {
+  margin: 0;
+  line-height: 1.5;
+  }
+
   .ranking-controls {
     display: flex;
   gap: 1rem;
@@ -454,8 +467,39 @@
 .elo-rating {
   color: #7c3aed;
   font-weight: 700;
-  }
-  
+  position: relative;
+}
+
+.ranking-score {
+  font-size: 0.75rem;
+  color: #059669;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.unqualified-indicator {
+  font-size: 0.75rem;
+  color: #dc2626;
+  margin-left: 0.25rem;
+  cursor: help;
+}
+
+.mobile-ranking-score {
+  font-size: 0.7rem;
+  color: #059669;
+    font-weight: 600;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.mobile-unqualified-indicator {
+  font-size: 0.7rem;
+  color: #dc2626;
+  font-weight: 500;
+  margin-top: 0.25rem;
+  display: block;
+}
+
 /* Stat Values */
 .stat-value {
   font-weight: 600;
