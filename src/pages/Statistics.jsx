@@ -175,7 +175,7 @@ const Statistics = () => {
             
             // Calculate a "Ranking Score" similar to professional sports
             // This considers: ELO, matches played (experience), win rate, recent form
-            const minMatches = 5; // Minimum matches for "qualified" ranking
+            const minMatches = 10; // Minimum matches for "qualified" ranking
             const hasMinMatches = (player.matches_played || 0) >= minMatches;
 
             // Base ELO score
