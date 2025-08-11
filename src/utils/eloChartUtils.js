@@ -19,23 +19,19 @@ export const getPlayerEloProgression = async (playerId, matches, players) => {
              match.team2?.team_players?.some(tp => tp.player_id === playerId);
     });
 
-  // Sort matches chronologically by when they were actually played (updated_at)
   const sortedMatches = relevantMatches.sort((a, b) => {
     // Use updated_at for completed matches (when scores were recorded) for proper chronological order
     const dateA = new Date(a.updated_at || a.created_at);
     const dateB = new Date(b.updated_at || b.created_at);
     return dateA - dateB; // Chronological order (oldest first)
-    return dateA - dateB;
   });
 
   if (sortedMatches.length === 0) return [];
 
   console.log(`📊 Processing ${sortedMatches.length} matches for player in chronological order`);
-  console.log(`   First match: ${sortedMatches[0].created_at}`);
-  console.log(`   Last match: ${sortedMatches[sortedMatches.length - 1].created_at}`);
 
   try {
-    // Fetch actual ELO history from database - FIXED: Use consistent column names
+    // Fetch actual ELO history from database
     const matchIds = sortedMatches.map(m => m.id);
     const { data: eloHistory, error } = await supabase
       .from('player_rating_history')
@@ -59,8 +55,6 @@ export const getPlayerEloProgression = async (playerId, matches, players) => {
     let runningStats = { wins: 0, losses: 0, totalPoints: 0, totalMatches: 0 };
 
     sortedMatches.forEach((match, index) => {
-  
-  sortedMatches.forEach((match, index) => {
       const isWin = didPlayerWin(match, playerId);
       
       runningStats.totalMatches++;
@@ -69,12 +63,6 @@ export const getPlayerEloProgression = async (playerId, matches, players) => {
       } else {
         runningStats.losses++;
       }
-    runningStats.totalMatches++;
-    if (isWin) {
-      runningStats.wins++;
-    } else {
-      runningStats.losses++;
-    }
 
       const pointsScored = getPointsScored(match, playerId, null);
       runningStats.totalPoints += pointsScored;
@@ -82,9 +70,6 @@ export const getPlayerEloProgression = async (playerId, matches, players) => {
       const team1Name = match.team1?.name || 'Team 1';
       const team2Name = match.team2?.name || 'Team 2';
       const matchLabel = `${team1Name} vs ${team2Name}`;
-    const team1Name = match.team1?.name || 'Team 1';
-    const team2Name = match.team2?.name || 'Team 2';
-    const matchLabel = `${team1Name} vs ${team2Name}`;
 
       // Find ELO record for this match
       const eloRecord = eloHistory.find(record => record.match_id === match.id);
@@ -108,50 +93,33 @@ export const getPlayerEloProgression = async (playerId, matches, players) => {
                        skillLevel === 'beginner' ? 1200 : 1500;
         } else {
           previousElo = progression[index - 1]?.eloRating || 1500;
-
-    }
-
+        }
+        
         // Simple estimation
         eloChange = isWin ? 25 : -20;
         eloRating = previousElo + eloChange;
       }
 
-
-
-
-
-
-
-
-
-
-      
-    progression.push({
-      matchNumber: index + 1,
-      date: match.updated_at || match.created_at, // Use when match was actually played
-      matchLabel: matchLabel,
-      winRate: (runningStats.wins / runningStats.totalMatches) * 100,
-      avgPointsPerMatch: runningStats.totalMatches > 0 ? runningStats.totalPoints / runningStats.totalMatches : 0,
-      pointsScored: pointsScored,
-      cumulativeWins: runningStats.wins,
-      cumulativeLosses: runningStats.losses,
+      progression.push({
+        matchNumber: index + 1,
+        date: match.updated_at || match.created_at,
+        matchLabel: matchLabel,
+        winRate: (runningStats.wins / runningStats.totalMatches) * 100,
+        avgPointsPerMatch: runningStats.totalMatches > 0 ? runningStats.totalPoints / runningStats.totalMatches : 0,
+        pointsScored: pointsScored,
+        cumulativeWins: runningStats.wins,
+        cumulativeLosses: runningStats.losses,
         eloRating: eloRating,
         eloChange: eloChange,
         previousElo: previousElo,
-
-
-
-
-
-      isWin: isWin,
-      team1Name: team1Name,
-      team2Name: team2Name,
-      team1Score: match.team1_score || 0,
-      team2Score: match.team2_score || 0,
+        isWin: isWin,
+        team1Name: team1Name,
+        team2Name: team2Name,
+        team1Score: match.team1_score || 0,
+        team2Score: match.team2_score || 0,
         hasActualHistory: !!eloRecord
-
+      });
     });
-  });
 
     console.log(`✅ Player ELO progression: ${progression.length} matches, ${eloHistory.length} with actual history`);
     return progression;
@@ -169,42 +137,25 @@ export const getTeamEloProgression = async (teamId, matches, teams) => {
   if (!teamId || !matches || matches.length === 0) return [];
 
   console.log(`🔍 Getting team ELO progression for team ID: ${teamId}`);
-  console.log(`📊 Total matches provided: ${matches.length}`);
 
-  // Filter relevant matches for this specific team and sort chronologically FROM OLDEST TO NEWEST
+  // Filter relevant matches for this specific team and sort chronologically
   const relevantMatches = matches
     .filter(match => {
       if (match.status !== 'completed') return false;
-      const isRelevant = match.team1_id === teamId || match.team2_id === teamId;
-      if (isRelevant) {
-        console.log(`📋 Found relevant match: ${match.team1?.name} vs ${match.team2?.name} (${match.id})`);
-      }
-      return isRelevant;
+      return match.team1_id === teamId || match.team2_id === teamId;
     });
 
-  // Sort matches chronologically by when they were actually played (updated_at)
   const sortedMatches = relevantMatches.sort((a, b) => {
-
     const dateA = new Date(a.updated_at || a.created_at);
     const dateB = new Date(b.updated_at || b.created_at);
-
     return dateA - dateB;
   });
 
-  console.log(`🎯 Filtered to ${sortedMatches.length} relevant matches for team ${teamId}`);
-  console.log(`   First match: ${sortedMatches[0]?.created_at}`);
-  console.log(`   Last match: ${sortedMatches[sortedMatches.length - 1]?.created_at}`);
-
-  if (sortedMatches.length === 0) {
-    console.log(`⚠️ No matches found for team ${teamId}`);
-    return [];
-  }
+  if (sortedMatches.length === 0) return [];
 
   try {
     // Fetch actual team ELO history from database
     const matchIds = sortedMatches.map(m => m.id);
-    console.log(`🔍 Looking for team ELO history in matches: ${matchIds.join(', ')}`);
-
     const { data: eloHistory, error } = await supabase
       .from('team_elo_history')
       .select('match_id, old_team_elo_rating, new_team_elo_rating, team_elo_change, created_at')
@@ -216,8 +167,6 @@ export const getTeamEloProgression = async (teamId, matches, teams) => {
       console.error('Error fetching team ELO history:', error);
       return getFallbackTeamProgression(teamId, sortedMatches, teams);
     }
-
-    console.log(`📈 Found ${eloHistory?.length || 0} ELO history records for team ${teamId}`);
 
     if (!eloHistory || eloHistory.length === 0) {
       console.log('No team ELO history found, using fallback calculation');
@@ -255,28 +204,21 @@ export const getTeamEloProgression = async (teamId, matches, teams) => {
         previousElo = eloRecord.old_team_elo_rating;
         eloRating = eloRecord.new_team_elo_rating;
         eloChange = eloRecord.team_elo_change;
-        console.log(`📊 Match ${match.id}: ELO ${previousElo} → ${eloRating} (${eloChange > 0 ? '+' : ''}${eloChange})`);
       } else {
         // Fallback if no history record found
-        const team = teams?.find(t => t.id === teamId);
-        const currentRating = team?.team_elo_rating || 1500;
-        
-        // Estimate ELO for this match
         if (index === 0) {
-          previousElo = 1500; // Teams start at 1500
+          previousElo = 1500;
         } else {
           previousElo = progression[index - 1]?.eloRating || 1500;
         }
         
-        // Simple estimation
         eloChange = isWin ? 24 : -20;
         eloRating = previousElo + eloChange;
-        console.log(`📊 Match ${match.id}: ELO ${previousElo} → ${eloRating} (${eloChange > 0 ? '+' : ''}${eloChange}) [ESTIMATED]`);
       }
 
       progression.push({
         matchNumber: index + 1,
-        date: match.updated_at || match.created_at, // Use when match was actually played
+        date: match.updated_at || match.created_at,
         matchLabel: matchLabel,
         winRate: (runningStats.wins / runningStats.totalMatches) * 100,
         avgPointsPerMatch: runningStats.totalMatches > 0 ? runningStats.totalPoints / runningStats.totalMatches : 0,
@@ -291,8 +233,7 @@ export const getTeamEloProgression = async (teamId, matches, teams) => {
         team2Name: team2Name,
         team1Score: match.team1_score || 0,
         team2Score: match.team2_score || 0,
-        hasActualHistory: !!eloRecord,
-        playedDate: match.created_at // When match was actually played
+        hasActualHistory: !!eloRecord
       });
     });
 
@@ -307,15 +248,12 @@ export const getTeamEloProgression = async (teamId, matches, teams) => {
 
 /**
  * Fallback player progression calculation (when no history is available)
- * FIXED: Don't force final ELO to match current rating - use natural progression
  */
 const getFallbackPlayerProgression = (playerId, matches, players) => {
   const progression = [];
   const runningStats = { wins: 0, losses: 0, totalPoints: 0, totalMatches: 0 };
-
-
-
-  // Sort matches chronologically by when they were actually played (updated_at)
+  
+  // Sort matches chronologically
   const sortedMatches = matches.sort((a, b) => {
     const dateA = new Date(a.updated_at || a.created_at);
     const dateB = new Date(b.updated_at || b.created_at);
@@ -328,8 +266,6 @@ const getFallbackPlayerProgression = (playerId, matches, players) => {
   const initialElo = skillLevel === 'advanced' ? 1800 : 
                     skillLevel === 'beginner' ? 1200 : 1500;
   
-  console.log(`⚠️ Using fallback ELO calculation for ${player?.name}, starting at ${initialElo}`);
-  console.log(`   Processing ${sortedMatches.length} matches chronologically`);
   let currentElo = initialElo;
 
   sortedMatches.forEach((match, index) => {
@@ -349,26 +285,14 @@ const getFallbackPlayerProgression = (playerId, matches, players) => {
     const team2Name = match.team2?.name || 'Team 2';
     const matchLabel = `${team1Name} vs ${team2Name}`;
 
-    // FIXED: Use realistic ELO changes based on actual win/loss, not forced final ELO
     const previousElo = currentElo;
-    let eloChange;
-    
-    // Calculate realistic ELO change based on match result
-    if (isWin) {
-      eloChange = Math.floor(Math.random() * 15) + 20; // +20 to +35 for wins
-    } else {
-      eloChange = -(Math.floor(Math.random() * 15) + 15); // -15 to -30 for losses
-    }
-
-      currentElo += eloChange;
-      
-    // Prevent extreme ratings
+    const eloChange = isWin ? Math.floor(Math.random() * 15) + 20 : -(Math.floor(Math.random() * 15) + 15);
+    currentElo += eloChange;
     currentElo = Math.max(800, Math.min(2500, currentElo));
 
-    console.log(`   Match ${index + 1} (${new Date(match.created_at).toLocaleDateString()}): ${isWin ? 'WIN' : 'LOSS'} → ${previousElo} ${eloChange > 0 ? '+' : ''}${eloChange} = ${currentElo}`);
     progression.push({
       matchNumber: index + 1,
-      date: match.updated_at || match.created_at, // Use when match was actually played
+      date: match.updated_at || match.created_at,
       matchLabel: matchLabel,
       winRate: (runningStats.wins / runningStats.totalMatches) * 100,
       avgPointsPerMatch: runningStats.totalMatches > 0 ? runningStats.totalPoints / runningStats.totalMatches : 0,
@@ -383,41 +307,28 @@ const getFallbackPlayerProgression = (playerId, matches, players) => {
       team2Name: team2Name,
       team1Score: match.team1_score || 0,
       team2Score: match.team2_score || 0,
-      hasActualHistory: false,
-      playedDate: match.created_at // When match was actually played
+      hasActualHistory: false
     });
   });
 
-  console.log(`⚠️ Fallback calculation complete: ${initialElo} → ${Math.round(currentElo)} (${runningStats.wins}W/${runningStats.losses}L)`);
   return progression;
 };
 
 /**
  * Fallback team progression calculation (when no history is available)
- * FIXED: Don't force final ELO to match current rating - use natural progression
  */
 const getFallbackTeamProgression = (teamId, matches, teams) => {
   const progression = [];
-
   const runningStats = { wins: 0, losses: 0, totalPoints: 0, totalMatches: 0 };
-
-
-
-  // Sort matches chronologically by when they were actually played (updated_at)
+  
+  // Sort matches chronologically
   const sortedMatches = matches.sort((a, b) => {
-
     const dateA = new Date(a.updated_at || a.created_at);
     const dateB = new Date(b.updated_at || b.created_at);
-
     return dateA - dateB;
   });
 
-  // Get team info
-  const team = teams?.find(t => t.id === teamId);
-  const initialElo = 1500; // Teams start at 1500
-  
-  console.log(`⚠️ Using fallback team ELO calculation for ${team?.name}, starting at ${initialElo}`);
-  console.log(`   Processing ${sortedMatches.length} matches chronologically`);
+  const initialElo = 1500;
   let currentElo = initialElo;
 
   sortedMatches.forEach((match, index) => {
@@ -437,25 +348,14 @@ const getFallbackTeamProgression = (teamId, matches, teams) => {
     const team2Name = match.team2?.name || 'Team 2';
     const matchLabel = `${team1Name} vs ${team2Name}`;
 
-    // FIXED: Use realistic ELO changes based on actual win/loss, not forced final ELO
     const previousElo = currentElo;
-    let eloChange;
-    
-    // Calculate realistic team ELO change based on match result
-    if (isWin) {
-      eloChange = Math.floor(Math.random() * 12) + 18; // +18 to +30 for wins
-    } else {
-      eloChange = -(Math.floor(Math.random() * 12) + 12); // -12 to -24 for losses
-    }
-      currentElo += eloChange;
-      
-    // Prevent extreme ratings
+    const eloChange = isWin ? Math.floor(Math.random() * 12) + 18 : -(Math.floor(Math.random() * 12) + 12);
+    currentElo += eloChange;
     currentElo = Math.max(800, Math.min(2500, currentElo));
 
-    console.log(`   Match ${index + 1} (${new Date(match.created_at).toLocaleDateString()}): ${isWin ? 'WIN' : 'LOSS'} → ${previousElo} ${eloChange > 0 ? '+' : ''}${eloChange} = ${currentElo}`);
     progression.push({
       matchNumber: index + 1,
-      date: match.updated_at || match.created_at, // Use when match was actually played
+      date: match.updated_at || match.created_at,
       matchLabel: matchLabel,
       winRate: (runningStats.wins / runningStats.totalMatches) * 100,
       avgPointsPerMatch: runningStats.totalMatches > 0 ? runningStats.totalPoints / runningStats.totalMatches : 0,
@@ -470,12 +370,10 @@ const getFallbackTeamProgression = (teamId, matches, teams) => {
       team2Name: team2Name,
       team1Score: match.team1_score || 0,
       team2Score: match.team2_score || 0,
-      hasActualHistory: false,
-      playedDate: match.created_at // When match was actually played
+      hasActualHistory: false
     });
   });
 
-  console.log(`⚠️ Team fallback calculation complete: ${initialElo} → ${Math.round(currentElo)} (${runningStats.wins}W/${runningStats.losses}L)`);
   return progression;
 };
 
