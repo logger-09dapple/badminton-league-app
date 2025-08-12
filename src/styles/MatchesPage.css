@@ -1,5 +1,39 @@
 /* Matches Page Specific Styling */
 
+/* New Team Badge and Creation Indicators */
+.new-team-badge {
+  display: inline-block;
+  background-color: #10b981;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.creation-note {
+  font-size: 0.75rem;
+  color: #10b981;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.team-content .team-name {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.team-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 /* Match date styling */
 .match-date {
   font-size: 0.875rem;

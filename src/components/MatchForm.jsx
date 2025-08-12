@@ -4,7 +4,7 @@ import { formatInputDate, formatDisplayDate, parseInputDate } from '../utils/dat
 import { Users, ArrowRight, CheckCircle } from 'lucide-react';
 import ScoreDropdown from './ScoreDropdown';
 
-const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = false }) => {
+const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = false, onAddTeam }) => {
   const [selectedPlayers, setSelectedPlayers] = useState(new Set());
   const [availableTeams1, setAvailableTeams1] = useState([]);
   const [availableTeams2, setAvailableTeams2] = useState([]);
@@ -67,21 +67,61 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     }
   }, [match]);
 
+  // Generate all possible team combinations from selected players
+  const generateTeamCombinations = (selectedPlayerIds) => {
+    if (selectedPlayerIds.length !== 4) return [];
+    
+    const playerArray = selectedPlayerIds.map(id => 
+      validPlayers.find(p => p.id === id)
+    ).filter(Boolean);
+    
+    if (playerArray.length !== 4) return [];
+    
+    // Generate all possible pairs (combinations of 2 from 4 players)
+    const combinations = [];
+    for (let i = 0; i < playerArray.length; i++) {
+      for (let j = i + 1; j < playerArray.length; j++) {
+        const team = [playerArray[i], playerArray[j]];
+        const remainingPlayers = playerArray.filter((_, idx) => idx !== i && idx !== j);
+        
+        // Create team object with necessary properties
+        const teamId = `temp_${team[0].id}_${team[1].id}`;
+        const skills = [team[0].skill_level, team[1].skill_level].sort();
+        const skillCombo = skills.join('-');
+        const genders = team.map(p => p.gender);
+        const teamType = genders[0] === genders[1] ? 'Same Gender' : 'Mixed';
+        
+        // Check if this team already exists in the database
+        const existingTeam = validTeams.find(dbTeam => {
+          const dbPlayerIds = dbTeam.players.map(p => p.id).sort();
+          const currentPlayerIds = team.map(p => p.id).sort();
+          return dbPlayerIds[0] === currentPlayerIds[0] && dbPlayerIds[1] === currentPlayerIds[1];
+        });
+        
+        combinations.push({
+          id: existingTeam?.id || teamId,
+          name: existingTeam?.name || `${team[0].name} & ${team[1].name}`,
+          players: team,
+          skill_combination: skillCombo,
+          team_type: teamType,
+          isExisting: !!existingTeam,
+          remainingPlayers: remainingPlayers
+        });
+      }
+    }
+    
+    return combinations;
+  };
+
   // Update available teams when selected players change
   useEffect(() => {
     if (selectedPlayers.size === 4) {
       const selectedPlayerIds = Array.from(selectedPlayers);
+      const allPossibleTeams = generateTeamCombinations(selectedPlayerIds);
       
-      // Find teams where both players are in the selected players list
-      const eligibleTeams = validTeams.filter(team => {
-        const teamPlayerIds = team.players.map(p => p.id);
-        return teamPlayerIds.length === 2 && 
-               teamPlayerIds.every(id => selectedPlayerIds.includes(id));
-      });
+      console.log('All possible team combinations:', allPossibleTeams);
       
-      console.log('Eligible teams for selected players:', eligibleTeams);
-      
-      setAvailableTeams1(eligibleTeams);
+      setAvailableTeams1(allPossibleTeams);
       setCurrentStep(2);
     } else {
       setAvailableTeams1([]);
@@ -89,14 +129,45 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
       setCurrentStep(1);
       setFormData(prev => ({ ...prev, team1Id: '', team2Id: '' }));
     }
-  }, [selectedPlayers, validTeams]);
+  }, [selectedPlayers, validTeams, validPlayers]);
 
   // Update Team 2 options when Team 1 is selected
   useEffect(() => {
     if (formData.team1Id && availableTeams1.length > 0) {
-      const remainingTeams = availableTeams1.filter(team => team.id !== formData.team1Id);
-      setAvailableTeams2(remainingTeams);
-      // Step 3 is team 2 selection, step 4 (score input) is always available after team 2 selection
+      const selectedTeam1 = availableTeams1.find(team => team.id === formData.team1Id);
+      
+      if (selectedTeam1 && selectedTeam1.remainingPlayers) {
+        // Create the opposing team from remaining players
+        const remainingPlayers = selectedTeam1.remainingPlayers;
+        const skills = [remainingPlayers[0].skill_level, remainingPlayers[1].skill_level].sort();
+        const skillCombo = skills.join('-');
+        const genders = remainingPlayers.map(p => p.gender);
+        const teamType = genders[0] === genders[1] ? 'Same Gender' : 'Mixed';
+        
+        // Check if this team already exists in the database
+        const existingTeam = validTeams.find(dbTeam => {
+          const dbPlayerIds = dbTeam.players.map(p => p.id).sort();
+          const currentPlayerIds = remainingPlayers.map(p => p.id).sort();
+          return dbPlayerIds[0] === currentPlayerIds[0] && dbPlayerIds[1] === currentPlayerIds[1];
+        });
+        
+        const team2Id = existingTeam?.id || `temp_${remainingPlayers[0].id}_${remainingPlayers[1].id}`;
+        const opposingTeam = {
+          id: team2Id,
+          name: existingTeam?.name || `${remainingPlayers[0].name} & ${remainingPlayers[1].name}`,
+          players: remainingPlayers,
+          skill_combination: skillCombo,
+          team_type: teamType,
+          isExisting: !!existingTeam
+        };
+        
+        setAvailableTeams2([opposingTeam]);
+      } else {
+        // Fallback to original logic for existing teams
+        const remainingTeams = availableTeams1.filter(team => team.id !== formData.team1Id);
+        setAvailableTeams2(remainingTeams);
+      }
+      
       setCurrentStep(3);
     } else {
       setAvailableTeams2([]);
@@ -105,7 +176,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
         setCurrentStep(2);
       }
     }
-  }, [formData.team1Id, availableTeams1]);
+  }, [formData.team1Id, availableTeams1, validTeams, validPlayers]);
 
   const handlePlayerToggle = (playerId) => {
     const newSelectedPlayers = new Set(selectedPlayers);
@@ -165,9 +236,60 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Check if we need to create new teams
+    const team1 = availableTeams1.find(team => team.id === formData.team1Id);
+    const team2 = availableTeams2.find(team => team.id === formData.team2Id);
+    
+    if (!team1 || !team2) {
+      setErrors({ teams: 'Please select valid teams for both sides' });
+      return;
+    }
+
+    let actualTeam1Id = formData.team1Id;
+    let actualTeam2Id = formData.team2Id;
+
+    // Create new teams if they don't exist
+    if (!team1.isExisting || !team2.isExisting) {
+      setIsSubmitting(true);
+      try {
+        // Create team 1 if it doesn't exist
+        if (!team1.isExisting) {
+          const team1Data = {
+            name: team1.name,
+            skillCombination: team1.skill_combination,
+            playerIds: team1.players.map(p => p.id)
+          };
+          
+          console.log('Creating new team 1:', team1Data);
+          const newTeam1 = await onAddTeam(team1Data);
+          actualTeam1Id = newTeam1.id;
+        }
+
+        // Create team 2 if it doesn't exist
+        if (!team2.isExisting) {
+          const team2Data = {
+            name: team2.name,
+            skillCombination: team2.skill_combination,
+            playerIds: team2.players.map(p => p.id)
+          };
+          
+          console.log('Creating new team 2:', team2Data);
+          const newTeam2 = await onAddTeam(team2Data);
+          actualTeam2Id = newTeam2.id;
+        }
+      } catch (error) {
+        console.error('Error creating teams:', error);
+        setErrors({ 
+          submit: `Failed to create teams: ${error.message}` 
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const matchData = {
-      team1Id: formData.team1Id,
-      team2Id: formData.team2Id,
+      team1Id: actualTeam1Id,
+      team2Id: actualTeam2Id,
       scheduledDate: formData.scheduledDate ? parseInputDate(formData.scheduledDate) : null,
       status: 'completed' // Always completed since we require scores
     };
@@ -175,6 +297,7 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     // Always include scores (required now)
     if (!formData.team1Score || !formData.team2Score) {
       setErrors({ scores: 'Both team scores are required' });
+      setIsSubmitting(false);
       return;
     }
       
@@ -185,26 +308,29 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     const scoreValidation = validationUtils.validateBadmintonScore(matchData.team1Score, matchData.team2Score);
     if (!scoreValidation.isValid) {
       setErrors(scoreValidation.errors);
+      setIsSubmitting(false);
       return;
     }
 
     const validation = validationUtils.validateMatch(matchData);
     if (!validation.isValid) {
       setErrors(validation.errors);
+      setIsSubmitting(false);
       return;
     }
 
     if (selectedPlayers.size !== 4) {
       setErrors({ players: 'Please select exactly 4 players for the match' });
+      setIsSubmitting(false);
       return;
     }
 
-    if (formData.team1Id === formData.team2Id) {
+    if (actualTeam1Id === actualTeam2Id) {
       setErrors({ teams: 'Please select different teams for the match' });
+      setIsSubmitting(false);
       return;
     }
 
-    setIsSubmitting(true);
     try {
       console.log('🎯 Submitting match data:', matchData); // Debug log
       const result = await onSubmit(matchData);
@@ -328,20 +454,24 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
                   checked={formData.team1Id === team.id}
                   onChange={handleChange}
                 />
-                <div className="team-content">
-                  <div className="team-name">{team.name}</div>
-                  <div className="team-players">
-                    {team.players.map(player => (
-                      <span key={player.id} className="player-tag">
-                        {player.name}
-                      </span>
-                    ))}
+                  <div className="team-content">
+                    <div className="team-name">
+                      {team.name}
+                      {!team.isExisting && <span className="new-team-badge">NEW</span>}
+                    </div>
+                    <div className="team-players">
+                      {team.players.map(player => (
+                        <span key={player.id} className="player-tag">
+                          {player.name}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="team-meta">
+                      <span className="skill-combo">{team.skill_combination}</span>
+                      <span className="team-type">{team.team_type}</span>
+                      {!team.isExisting && <span className="creation-note">Will be created</span>}
+                    </div>
                   </div>
-                  <div className="team-meta">
-                    <span className="skill-combo">{team.skill_combination}</span>
-                    <span className="team-type">{team.team_type}</span>
-                  </div>
-                </div>
               </label>
             ))}
           </div>
@@ -367,20 +497,24 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
                   checked={formData.team2Id === team.id}
                   onChange={handleChange}
                 />
-                <div className="team-content">
-                  <div className="team-name">{team.name}</div>
-                  <div className="team-players">
-                    {team.players.map(player => (
-                      <span key={player.id} className="player-tag">
-                        {player.name}
-                      </span>
-                    ))}
+                  <div className="team-content">
+                    <div className="team-name">
+                      {team.name}
+                      {!team.isExisting && <span className="new-team-badge">NEW</span>}
+                    </div>
+                    <div className="team-players">
+                      {team.players.map(player => (
+                        <span key={player.id} className="player-tag">
+                          {player.name}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="team-meta">
+                      <span className="skill-combo">{team.skill_combination}</span>
+                      <span className="team-type">{team.team_type}</span>
+                      {!team.isExisting && <span className="creation-note">Will be created</span>}
+                    </div>
                   </div>
-                  <div className="team-meta">
-                    <span className="skill-combo">{team.skill_combination}</span>
-                    <span className="team-type">{team.team_type}</span>
-                  </div>
-                </div>
               </label>
             ))}
           </div>

@@ -17,6 +17,7 @@ const Matches = () => {
     loading, 
     error, 
     addMatch, 
+    addTeam, // Add this
     updateMatch,
     deleteAllMatches, // Add this to context
     deleteMatch // We'll implement this in the context
@@ -522,6 +523,7 @@ const getSelectedPlayerNames = () => {
             players={players}
             onSubmit={handleMatchSubmit}
             onCancel={() => setIsMatchModalOpen(false)}
+            onAddTeam={addTeam} /* Pass the addTeam function */
             includeScores={true} /* NEW: Enable score input during match creation */
           />
         </Modal>
