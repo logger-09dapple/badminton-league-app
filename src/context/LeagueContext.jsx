@@ -298,6 +298,7 @@ export function LeagueProvider({ children }) {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
       const newTeam = await supabaseService.addTeam(teamData);
       dispatch({ type: ACTION_TYPES.ADD_TEAM, payload: newTeam });
+      return newTeam; // Return the created team
     } catch (error) {
       console.error('Error in addTeam:', error);
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: error.message });
