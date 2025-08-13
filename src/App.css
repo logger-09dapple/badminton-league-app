@@ -417,6 +417,31 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .modal-overlay {
+    /* Better mobile positioning */
+    position: fixed;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .modal-content {
+    width: 95%;
+    max-width: none;
+    max-height: calc(100vh - 2rem);
+    margin: 1rem;
+    /* Better mobile scrolling */
+    position: relative;
+    height: auto;
+    min-height: auto;
+  }
+  
+  .modal-body {
+    padding: 1rem;
+    /* Ensure content can scroll properly on mobile */
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    max-height: calc(100vh - 8rem);
+  }
+  
   .nav {
     gap: 1rem;
   }
@@ -2314,6 +2339,29 @@ input[type="checkbox"]:focus {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .enhanced-match-form {
+    max-width: 100%;
+    margin: 0;
+  }
+  
+  .form-content {
+    /* Ensure all content is visible and scrollable */
+    min-height: auto;
+    overflow: visible;
+  }
+  
+  .match-details-section {
+    /* Ensure score section is properly spaced */
+    margin-bottom: 1rem;
+    padding-bottom: 2rem;
+  }
+  
+  .match-score-section {
+    /* Add extra bottom padding for mobile */
+    padding-bottom: 2rem;
+    margin-bottom: 2rem;
+  }
+  
   .players-grid {
     grid-template-columns: 1fr;
   }
