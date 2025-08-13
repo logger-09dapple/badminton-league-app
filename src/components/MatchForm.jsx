@@ -22,13 +22,6 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
   const [currentStep, setCurrentStep] = useState(1);
   const [showScoreInput, setShowScoreInput] = useState(true);
 
-  // Debug logging
-  console.log('MatchForm props:', { 
-    teamsCount: teams?.length, 
-    playersCount: players?.length,
-    match,
-    includeScores
-  });
 
   // Filter valid teams and players
   const validTeams = teams?.filter(team => 
@@ -118,8 +111,6 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
     if (selectedPlayers.size === 4) {
       const selectedPlayerIds = Array.from(selectedPlayers);
       const allPossibleTeams = generateTeamCombinations(selectedPlayerIds);
-      
-      console.log('All possible team combinations:', allPossibleTeams);
       
       setAvailableTeams1(allPossibleTeams);
       setCurrentStep(2);
@@ -530,8 +521,11 @@ const MatchForm = ({ match, teams, players, onSubmit, onCancel, includeScores = 
   const renderScoreInput = () => {
     if (!formData.team1Id || !formData.team2Id) return null;
     
-    const team1 = validTeams.find(team => team.id === formData.team1Id);
-    const team2 = validTeams.find(team => team.id === formData.team2Id);
+    // Look for teams in the available teams arrays first, then fall back to validTeams
+    const team1 = availableTeams1.find(team => team.id === formData.team1Id) || 
+                  validTeams.find(team => team.id === formData.team1Id);
+    const team2 = availableTeams2.find(team => team.id === formData.team2Id) || 
+                  validTeams.find(team => team.id === formData.team2Id);
     
     if (!team1 || !team2) return null;
     
