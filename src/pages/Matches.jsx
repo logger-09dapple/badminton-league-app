@@ -247,22 +247,23 @@ const getSelectedPlayerNames = () => {
 
   // Helper function to get the display date for a match
   const getMatchDisplayDate = (match) => {
-    if (match.status === 'completed') {
-      // For completed matches, show when it was played (updated_at)
-      return match.updated_at ? new Date(match.updated_at) : new Date(match.created_at);
-    } else {
-      // For unplayed matches, show scheduled date if available, otherwise created date
-      return match.scheduled_date ? new Date(match.scheduled_date) : new Date(match.created_at);
+    // Always prefer scheduled_date if available (the date selected in the form)
+    // This represents when the match was actually played
+    if (match.scheduled_date) {
+      return new Date(match.scheduled_date);
     }
+    
+    // If no scheduled date, fall back to created_at for display
+    return new Date(match.created_at);
   };
 
   // Helper function to get display label for the date
   const getMatchDateLabel = (match) => {
-    if (match.status === 'completed') {
-      return 'Played';
-    } else if (match.scheduled_date) {
-      return 'Scheduled';
+    if (match.scheduled_date) {
+      // If there's a scheduled date, show "Played" for completed, "Scheduled" for unplayed
+      return match.status === 'completed' ? 'Played' : 'Scheduled';
     } else {
+      // If no scheduled date, show "Created" since we're showing created_at
       return 'Created';
     }
   };

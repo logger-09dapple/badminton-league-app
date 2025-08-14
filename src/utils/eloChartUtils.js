@@ -102,7 +102,7 @@ export const getPlayerEloProgression = async (playerId, matches, players) => {
 
       progression.push({
         matchNumber: index + 1,
-        date: match.updated_at || match.created_at,
+        date: match.scheduled_date || match.created_at, // Use scheduled date for charts, not upload time
         matchLabel: matchLabel,
         winRate: (runningStats.wins / runningStats.totalMatches) * 100,
         avgPointsPerMatch: runningStats.totalMatches > 0 ? runningStats.totalPoints / runningStats.totalMatches : 0,
@@ -218,7 +218,7 @@ export const getTeamEloProgression = async (teamId, matches, teams) => {
 
       progression.push({
         matchNumber: index + 1,
-        date: match.updated_at || match.created_at,
+        date: match.scheduled_date || match.created_at, // Use scheduled date for charts, not upload time
         matchLabel: matchLabel,
         winRate: (runningStats.wins / runningStats.totalMatches) * 100,
         avgPointsPerMatch: runningStats.totalMatches > 0 ? runningStats.totalPoints / runningStats.totalMatches : 0,
@@ -292,7 +292,7 @@ const getFallbackPlayerProgression = (playerId, matches, players) => {
 
     progression.push({
       matchNumber: index + 1,
-      date: match.updated_at || match.created_at,
+      date: match.scheduled_date || match.created_at, // Use scheduled date for charts, not upload time
       matchLabel: matchLabel,
       winRate: (runningStats.wins / runningStats.totalMatches) * 100,
       avgPointsPerMatch: runningStats.totalMatches > 0 ? runningStats.totalPoints / runningStats.totalMatches : 0,
@@ -355,7 +355,7 @@ const getFallbackTeamProgression = (teamId, matches, teams) => {
 
     progression.push({
       matchNumber: index + 1,
-      date: match.updated_at || match.created_at,
+      date: match.scheduled_date || match.created_at, // Use scheduled date for charts, not upload time
       matchLabel: matchLabel,
       winRate: (runningStats.wins / runningStats.totalMatches) * 100,
       avgPointsPerMatch: runningStats.totalMatches > 0 ? runningStats.totalPoints / runningStats.totalMatches : 0,
