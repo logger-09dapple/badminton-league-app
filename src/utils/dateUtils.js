@@ -57,6 +57,7 @@ export const formatDisplayDateTime = (date, options = {}) => {
 
 /**
  * Format date for form inputs (YYYY-MM-DD)
+ * Preserves the date without timezone conversion
  */
 export const formatInputDate = (date) => {
   if (!date) return '';
@@ -67,7 +68,12 @@ export const formatInputDate = (date) => {
     return '';
   }
   
-  return dateObj.toISOString().split('T')[0];
+  // Use local date components to avoid timezone shifts
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
 };
 
 /**
@@ -90,12 +96,16 @@ export const formatInputDateTime = (date) => {
 
 /**
  * Parse date from form input accounting for timezone
+ * Creates a date at 6:30 PM in local timezone (typical badminton match time)
  */
 export const parseInputDate = (dateString) => {
   if (!dateString) return null;
   
-  // Create date in local timezone
-  const date = new Date(dateString + 'T00:00:00');
+  // Parse the date string and create a date at 6:30 PM local time
+  // This avoids timezone issues and sets a realistic match time
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 18, 30, 0, 0); // 6:30 PM local time
+  
   return date;
 };
 
